@@ -1,6 +1,6 @@
 # YOLO+UNET-like Ensemble Architecture for BraTS-SSA
 
-This repository contains an implementation of a VRAM efficient and fast Brain Tumor Segmentation Model for the BraTS-SSA 2025 Dataset
+This repository contains an implementation of a VRAM efficient and fast Brain Tumor Segmentation Model for the BraTS-SSA 2025 Dataset (WORK IN PROGRESS)
 
 ### The repository is organized as follow
 ```
