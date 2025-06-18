@@ -1,0 +1,10 @@
+all_datasets/
+cleaned*/
+runs/
+t1c/ 
+oxford_segmentation.keras
+
+preprocessing/raw_files/
+preprocessing/final_dataset/
+preprocessing/cleaned*
+preprocessing/t1c/

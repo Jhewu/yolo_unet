@@ -1,0 +1,13 @@
+train_data/ 
+
+
+
+
+train_yolo/datasets
+train_yolo/train*/
+train_yolo/callbacks/
+train_yolo/*.pt
+
+train_unet/preprocessing/2024_brats_ped
+train_unet/preprocessing/2025_brats_ped
+train_unet/UNet-PyTorch/final_dataset
