@@ -5,13 +5,6 @@ from random import shuffle, seed
 import shutil
 import threading
 
-"""HYPERPARAMETERS"""
-DATASET_FOLDER = "BraTS-PEDs2023_Training"
-DEST_FOLDER = "dataset_split"
-TRAIN_SPLIT = 0.7
-VAL_TEST_SPLIT = 0.15
-
-"""Helper Functions"""
 def CreateDir(folder_name):
    if not os.path.exists(folder_name):
        os.makedirs(folder_name) 
@@ -26,11 +19,12 @@ def CopyFile(dataset_dir_list, dataset_dir, dataset_dest):
         else:
             print(f"Source directory does not exist: {dir_to_copy}")
 
-"""Main Runtime"""
+# ------------------------------------------------------------------------------
+# Main Runtime
+# ------------------------------------------------------------------------------
 def Split_Dataset_YOLO(): 
-    # set up cwd and test, train, val paths
     root_dir = os.getcwd()
-    dataset_dir = os.path.join(root_dir, DATASET_FOLDER)
+    dataset_dir = os.path.join(root_dir, IN_DIR)
 
     # list of directories in dataset (contains all patient folders)
     dataset_dir_list = os.listdir(dataset_dir)
@@ -43,11 +37,17 @@ def Split_Dataset_YOLO():
     train_index = ceil(dataset_length*TRAIN_SPLIT)
     print(f"Splitting... training set is {train_index} long")
 
-    val_index = ceil(dataset_length*VAL_TEST_SPLIT)
+    # first percetange it's for validation, second for test
+    val_split = abs(VAL_TEST_SPLIT)
+    test_split = abs(1 - VAL_TEST_SPLIT)
+
+    val_index = ceil( 
+        (abs(dataset_length-(dataset_length*TRAIN_SPLIT)))* val_split)
     print(f"Splitting... validation set is {val_index} long")
 
-    test_index = dataset_length-train_index-val_index
-    print(f"Splitting... validation set is {test_index} long")
+    test_index = ceil( 
+        (abs(dataset_length-(dataset_length*TRAIN_SPLIT)))* test_split)
+    print(f"Splitting... test set is {test_index} long")
 
     # randomly shuffle the list before splitting 
     # use a seed to shuffle indices to ensure 
@@ -61,28 +61,23 @@ def Split_Dataset_YOLO():
     test_list = dataset_dir_list[train_index+val_index:]
 
     # create directories for each split
-    train_dest = f"{DEST_FOLDER}/train/"
-    val_dest = f"{DEST_FOLDER}/val/"
-    test_dest = f"{DEST_FOLDER}/test/"
+    train_dest = f"{OUT_DIR}/train/"
+    val_dest = f"{OUT_DIR}/val/"
+    test_dest = f"{OUT_DIR}/test/"
 
-    CreateDir(train_dest)
-    CreateDir(val_dest)
-    CreateDir(test_dest)
+    CreateDir(train_dest), CreateDir(val_dest), CreateDir(test_dest)
 
     # define the threads for copying directories
     threads = []
 
-    # Create and start thread for training data
     train_thread = threading.Thread(target=CopyFile, args=(train_list, dataset_dir, train_dest))
     threads.append(train_thread)
     train_thread.start()
 
-    # Create and start thread for validation data
     val_thread = threading.Thread(target=CopyFile, args=(val_list, dataset_dir, val_dest))
     threads.append(val_thread)
     val_thread.start()
 
-    # Create and start thread for test data
     test_thread = threading.Thread(target=CopyFile, args=(test_list, dataset_dir, test_dest))
     threads.append(test_thread)
     test_thread.start()
@@ -94,22 +89,38 @@ def Split_Dataset_YOLO():
     print("\nAll directories copied successfully.")
 
 if __name__ == "__main__": 
+    # -------------------------------------------------------------
+
     des="""
-    This script is used to split a BraTS dataset into 
-    test, train and val, and it's mainly used to prepare the 
-    dataset for YOLO training. It takes the original training
-    dataset from BraTS that contains .nii.gz files, and split
-    it into the respective splits. The reason why we are doing
-    this is because if the BraTS competition ends, you have no 
+    This script split a BraTS dataset into test, train and val.
+    It uses the original training BraTS dataset containing
+    .nii.gz files as input. The reason why we are doing that it's 
+    because once the BraTS competition ends, you have no 
     way of validating your dataset or your testing set. 
     """
+
+    # -------------------------------------------------------------
 
     parser = argparse.ArgumentParser(description=des.lstrip(" "), formatter_class=argparse.RawTextHelpFormatter)
     parser.add_argument("--in_dir", type=str,help='input directory of images\t[None]')
     parser.add_argument('--out_dir',type=str,help='output directory prefix\t[None]')
     parser.add_argument('--train_split', type=float, default=0.7, help='train split percentage\t[0.7]')
     """CHANGE THIS TO BE MORE USER FRIENDLY"""
-    parser.add_argument('--val_test_split', type=float, default=0.15, help='test and validation split percentage\t[0.15]')
+    parser.add_argument('--val_test_split', type=float, default=0.50, help='validation and test split percentage after train split\t[0.50]')
+    args = parser.parse_args()
+
+    if args.in_dir is not None:
+        IN_DIR = args.in_dir
+    else: raise IOError
+    if args.out_dir is not None:
+        OUT_DIR = args.out_dir
+    else: OUT_DIR = "dataset_split"
+    if args.train_split is not None:
+        TRAIN_SPLIT = args.train_split
+    else: TRAIN_SPLIT = 0.70
+    if args.val_test_split is not None:
+        VAL_TEST_SPLIT = args.val_test_split
+    else: VAL_TEST_SPLIT = 0.50
     
     Split_Dataset_YOLO()
     print("\nFinish splitting the dataset, please check your directory\n")

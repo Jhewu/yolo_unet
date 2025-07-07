@@ -1,36 +1,10 @@
-"""
-This script is specifically made to prepare data for Yolov11-seg 
-training. It takes in as an input a  "dataset/split" directory (with
-test, val, train directories) that you obtain after running process
-split_dataset_YOLO.py. From there, it creates 2D slices from the range 
-MIN_SLICE and MAX_SLICE (z-coordinates)in axial view of the brain. By 
-default, it creates one modality, but you can use process_all_mod.sh 
-to run all. By default it saves the 2d slices as .npy files 
-so that there's no need to normalize. You can modify that
-by changing the save_as_np to False in the function GetImageSlices()
-Only the training 2d slices are normalized, the ground_truth 
-is kept the default 0-3 range for easier mask extraction during training. 
-If you still want to normalize it, you can disable it by turning is_ground_true = False
-"""
-
-"""Imports"""
 import os
 import nibabel as nib
 import cv2 as cv
 import numpy as np
+import argparse
 from concurrent.futures import ThreadPoolExecutor
 
-"""HYPERPARAMETERS"""
-DATASET_FOLDER = "dataset_split"
-DEST_FOLDER = ""
-DEST_FOLDER_GT = ""
-
-MIN_SLICE = 30
-MAX_SLICE = 120
-
-MODALITY = ["t1c" , "t1n", "t2f" ,"t2w"] 
-
-"""Helper Functions"""
 def CreateDir(folder_name):
    if not os.path.exists(folder_name):
        os.makedirs(folder_name)   
@@ -96,7 +70,9 @@ def GetPatientScan(root_dir, dest_dir, dest_dir_gt, mod):
                 modality_name = modality_name.replace(f"-{mod}", "")
                 GetImageSlices(modality_name, file_dir, dest_dir, mod, save_as_np=False, is_ground_truth=False)
 
-"""Main Runtime"""
+# -----------------------------------------------------------------------------------------------
+# Main Runtime
+# -----------------------------------------------------------------------------------------------
 def BraTS_2D_Slicer_YOLO(): 
     for mod in MODALITY:
         # change all folder hyperparameters
@@ -129,6 +105,48 @@ def BraTS_2D_Slicer_YOLO():
         print("All directories processed successfully.")
 
 if __name__ == "__main__": 
+    # -------------------------------------------------------------
+
+    des="""
+    This script uses as an input .nib files and then "slices" them into 2D slices
+    alongside the axial view from the range MIN_SLICE and MAX_SLICE. The input it's
+    a "dataset_split/train/nib1..." directory obtained after running split_dataset_YOLO.py.
+    """
+
+    # -------------------------------------------------------------
+
+    """HYPERPARAMETERS"""
+    DATASET_FOLDER = "dataset_split"
+    DEST_FOLDER = ""
+    DEST_FOLDER_GT = ""
+
+    MIN_SLICE = 30
+    MAX_SLICE = 120
+
+    MODALITY = ["t1c" , "t1n", "t2f" ,"t2w"] 
+
+    parser = argparse.ArgumentParser(description=des.lstrip(" "), formatter_class=argparse.RawTextHelpFormatter)
+    parser.add_argument("--in_dir", type=str,help='input directory of images\t[None]')
+    parser.add_argument('--out_dir',type=str,help='output directory prefix\t[None]')
+    parser.add_argument('--train_split', type=float, default=0.7, help='train split percentage\t[0.7]')
+    """CHANGE THIS TO BE MORE USER FRIENDLY"""
+    parser.add_argument('--val_test_split', type=float, default=0.50, help='test and validation split percentage\t[0.15]')
+    args = parser.parse_args()
+
+    if args.in_dir is not None:
+        in_dir = args.in_dir
+    else: raise IOError
+    if args.out_dir is not None:
+        out_dir = args.out_dir
+    else: out_dir = "dataset_split"
+    if args.train_split is not None:
+        train_split = args.train_split
+    else: train_split = 0.70
+    if args.val_test_split is not None:
+        val_test_split = args.val_test_split
+    else: val_test_split = 0.50
+    
+
     print(f"Creating slices from {MIN_SLICE} to {MAX_SLICE} (representing the z-coordinates) in axial view...\n")
     BraTS_2D_Slicer_YOLO()
     print("\nFinish slicing, please check your directory\n")
