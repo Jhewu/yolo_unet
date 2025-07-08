@@ -1,18 +1,23 @@
 #!/bin/bash
 
-python3 split_dataset_YOLO.py
-python3 brats_2d_slicer_YOLO.py
-python3 binarize_gt.py
-python3 masks_to_polygons.py
-python3 copy_training_img.py
+# -------------------------------------------------
+# This script it's for processing BraTS dataset for
+# both YOLO object detection and UNET Training
 
-rm -r ./binarized_t1c
-rm -r ./binarized_t1n
-rm -r ./binarized_t2f
-rm -r ./binarized_t2w
+# -> {mod}_detection directories are for YOLO detection
+# -> {mod}_segmentation directories are for UNET
+# -------------------------------------------------
 
+# For UNET
+python3 utils/split_dataset.py --in_dir ASNR-MICCAI-BraTS2023-SSA-Challenge-TrainingData_V2 
+python3 utils/brats_2d_slicer.py
+python3 utils/crop_clean_binarize.py
+# For YOLO
+python3 utils/masks_to_boxes.py
+python3 utils/copy_training_img.py
+
+# Remove trash
 rm -r ./dataset_split
-
 rm -r ./t1c
 rm -r ./t1n
 rm -r ./t2f

@@ -1,18 +1,8 @@
-"""
-As the name suggest, this copies the training images
-to the desired directory. This is part of the process_all_mod.sh
-workflow. Do not use it alone
-"""
-
-"""Imports"""
 import os
 from concurrent.futures import ThreadPoolExecutor
 import shutil
+import argparse
 
-"""HYPERPARAMETERS"""
-MODALITY = ["t1c", "t1n", "t2f" ,"t2w"]
-
-"""Helper Functions"""
 def CreateDir(folder_name):
    if not os.path.exists(folder_name):
        os.makedirs(folder_name)   
@@ -28,19 +18,42 @@ def CopyTree(src, dst):
     except Exception as e:
         print(f"Error occurred while copying: {e}")
 
-"""Main Runtime"""
 def CopyTrainingImages(): 
     for mod in MODALITY:
-        # For YOLO Object Detection and Segmentation
-        input_folder = f"{mod}_cropped/images"
-        dest_folder = f"{mod}_dataset/images"
+        input_folder = f"{IN_DIR}/{mod}_segmentation/images"
+        dest_folder = f"{OUT_DIR}/{mod}_detection/images"
         CreateDir(dest_folder)
-
-        # Use ThreadPoolExecutor 
-        max_workers = 10
-        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        with ThreadPoolExecutor(max_workers=WORKERS) as executor:
                 executor.submit(CopyTree, input_folder, dest_folder)
 
 if __name__ == "__main__": 
+    # -------------------------------------------------------------
+    des="""
+    As the name suggest, this copies the training images
+    to the desired directory.
+    """
+    # -------------------------------------------------------------
+
+    MODALITY = ["t1c" , "t1n", "t2f" ,"t2w"] 
+
+    parser = argparse.ArgumentParser(description=des.lstrip(" "), formatter_class=argparse.RawTextHelpFormatter)
+    parser.add_argument("--in_dir", type=str,help='input directory of images\t[None]')
+    parser.add_argument('--out_dir',type=str,help='output directory prefix\t[None]')
+    parser.add_argument('--workers', type=int, help='number of threads/workers to use\t[10]')
+    parser.add_argument('--modality', type=str, choices=MODALITY, nargs='+', help=f'BraTS dataset modalities to use\t[t1c, t1n, t2f, t2w]')
+    args = parser.parse_args()
+
+    if args.in_dir is not None:
+        IN_DIR = args.in_dir
+    else: IN_DIR = "."
+    if args.out_dir is not None:
+        OUT_DIR = args.out_dir
+    else: OUT_DIR = "."
+    if args.workers is not None:
+        WORKERS = args.workers
+    else: WORKERS = 10
+    if args.modality is not None:
+        MODALITY = [mod for mod in args.modality]
+
     CopyTrainingImages()
     print("\nFinish copying, please check your directory\n")

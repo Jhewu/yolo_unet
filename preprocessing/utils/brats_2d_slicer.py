@@ -84,15 +84,12 @@ def BraTS_2D_Slicer():
         # list of the splits (test, train, val)
         dataset_dir_list = os.listdir(dataset_dir)
 
-        # define a thread pool executor with a maximum numnber of workers
-        max_workers = 10 # adjust based on your syster's capabilities
-
         # Ensure destination directories exist
         for dataset_split in dataset_dir_list:
             CreateDir(os.path.join(dest_img_dir , dataset_split))
             CreateDir(os.path.join(dest_label_dir, dataset_split))
 
-        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        with ThreadPoolExecutor(max_workers=WORKERS) as executor:
             for split in dataset_dir_list:
                 input_dir = os.path.join(dataset_dir, split)
                 output_dir = os.path.join(dest_img_dir , split)
@@ -119,6 +116,7 @@ if __name__ == "__main__":
     parser.add_argument('--min_slice', type=int, help='minimum axial slice index\t[30]')
     parser.add_argument('--max_slice', type=int, help='maximum axial slice index\t[120]')
     parser.add_argument('--modality', type=str, choices=MODALITY, nargs='+', help=f'BraTS dataset modalities to use\t[t1c, t1n, t2f, t2w]')
+    parser.add_argument('--workers', type=int, help='number of threads/workers to use\t[10]')
     parser.add_argument('--img_save_as_np', type=bool, help='positive flag to save as np, do not use it if save image as PNG\t[--save_as_np]')
     parser.add_argument('--label_save_as_np', type=bool, help='positive flag to save as np, do not use it if save label as PNG\t[--save_as_np]')
     args = parser.parse_args()
@@ -135,6 +133,9 @@ if __name__ == "__main__":
     if args.max_slice is not None:
         MAX_SLICE = args.max_slice
     else: MAX_SLICE = 120
+    if args.workers is not None:
+        WORKERS = args.workers
+    else: WORKERS = 10
     if args.img_save_as_np is not None:
         IMG_SAVE_AS_NP = args.save_as_np
     else: IMG_SAVE_AS_NP = False
