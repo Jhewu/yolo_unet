@@ -1,10 +1,39 @@
-# BRATS DATASET 2D PRE-PROCESSOR FOR YOLOV11-SEG
+# BraTS Dataset 2D Preprocessor for YOLO Object Detection and U-Net Segmentation
 
-## What is it for? 
-If you're late to the BraTS competition but still want to train your model, validate it and test it, and you're working with a 2D YOLOv11-seg model, this is the repository for you
+![Image Sample](data_sample/image_sample.png)
+![Label Sample](data_sample/label_sample.png)
 
-## How to use
-1. Download your own copy of the BraTS Dataset, and rename the training dataset to "raw_files" and put it in the main directory. We will only use the training dataset
-2. Give permission to both process_all_mod.sh and process_stack.sh, by using: chmod +x [name_of_script].sh
-3. Run ./process_all_mod to create dataset split for all 4 modality. Do not run the scripts separately. This will create 4 directories, with images and labels split, and test, train and val splits. Note that the sh script will automatically remove unnecesary/intermediate diretories for you. 
-4. Run ./process_stack.sh if you want to create a separate dataset that stacks 3 modality to create a single PNG image. By default, it uses ["t1c", "t2f", "t2w"], you can change it in the hyperparameter section of the stack_images.py
+## Summary
+
+This repository provides a set of utility scripts to preprocess 3D `.nii.gz` Brain Tumor Segmentation Challenge (BraTS) brain scans into 2D "PNG slices" suitable for YOLO object detection and U-Net segmentation training. All functions are accessible via command-line arguments, and help can be accessed using the `--help` option.
+
+## Features
+
+- Converts BraTS `.nii.gz` files to 2D PNG slices.
+- Organizes the output into separate directories for YOLO object detection and U-Net segmentation.
+- Supports easy customization through command-line arguments.
+
+## How to Use
+
+1. **Sign Up to the BraTS Competition:**
+   - Visit the [BraTS challenge website](https://braintumorsegmentation.org/) and sign up to download the dataset.
+
+2. **Download the Dataset:**
+   - Obtain the BraTS dataset for your desired year or edition.
+
+3. **Make the Script Executable:**
+   ```bash
+   chmod +x process_all_mod.sh
+    ```
+4. **Set the Dataset Directory:**
+   - Open process_all_mod.sh and update the DATASET_DIR variable to point to your BraTS dataset directory.
+   - Alternatively, you can specify the dataset directory directly as a command-line argument.
+
+5. **Run the Preprocessing Script:**
+   ```bash
+   ./process_all_mod.sh
+    ```
+    - This will generate 8 directories (depending on the modality of the BraTS competition), `*segmentation` directories are for U-NET and `detection` directories are for YOLO. Example: `t1c_segmentation/`, `t1n_detection/`
+
+## Requirements
+`TBD` At the moment run, the script and see which packages you're missing. Will compile the list later. 
