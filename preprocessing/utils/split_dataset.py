@@ -105,7 +105,6 @@ if __name__ == "__main__":
     parser.add_argument("--in_dir", type=str,help='input directory of images\t[None]')
     parser.add_argument('--out_dir',type=str,help='output directory prefix\t[None]')
     parser.add_argument('--train_split', type=float, default=0.7, help='train split percentage\t[0.7]')
-    """CHANGE THIS TO BE MORE USER FRIENDLY"""
     parser.add_argument('--val_test_split', type=float, default=0.50, help='validation and test split percentage after train split\t[0.50]')
     args = parser.parse_args()
 

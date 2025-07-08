@@ -7,8 +7,8 @@
 # -------------------------------------------------
 
 
-python3 utils/split_dataset_YOLO.py --in_dir ASNR-MICCAI-BraTS2023-SSA-Challenge-TrainingData_V2 
-python3 utils/brats_2d_slicer_YOLO.py
+python3 utils/split_dataset.py --in_dir ASNR-MICCAI-BraTS2023-SSA-Challenge-TrainingData_V2 
+python3 utils/brats_2d_slicer.py
 
 
 

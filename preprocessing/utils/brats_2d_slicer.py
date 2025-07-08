@@ -65,24 +65,21 @@ def GetPatientScan(root_dir, dest_dir, dest_dir_gt, mod):
             # separate the ground truth
             if file == ground_truth: 
                 modality_name = modality_name.replace("-seg", "")
-                GetImageSlices(modality_name, file_dir, dest_dir_gt, mod, save_as_np=True, is_ground_truth=True)
+                GetImageSlices(modality_name, file_dir, dest_dir_gt, mod, save_as_np=LABEL_SAVE_AS_NP, is_ground_truth=True)
             elif file == chosen_modality:
                 modality_name = modality_name.replace(f"-{mod}", "")
-                GetImageSlices(modality_name, file_dir, dest_dir, mod, save_as_np=False, is_ground_truth=False)
+                GetImageSlices(modality_name, file_dir, dest_dir, mod, save_as_np=IMG_SAVE_AS_NP, is_ground_truth=False)
 
 # -----------------------------------------------------------------------------------------------
 # Main Runtime
 # -----------------------------------------------------------------------------------------------
-def BraTS_2D_Slicer_YOLO(): 
+def BraTS_2D_Slicer():
     for mod in MODALITY:
-        # change all folder hyperparameters
-        DATASET_FOLDER = "dataset_split"
-        DEST_FOLDER = f"{mod}/images"
-        DEST_FOLDER_GT = f"{mod}/labels"
+        dest_img_dir  = f"{"."}/{mod}/images"
+        dest_label_dir = f"{"."}/{mod}/labels"
 
-        # set up cwd and dataset split dir
         root_dir = os.getcwd()
-        dataset_dir = os.path.join(root_dir, DATASET_FOLDER)
+        dataset_dir = os.path.join(root_dir, IN_DIR)
 
         # list of the splits (test, train, val)
         dataset_dir_list = os.listdir(dataset_dir)
@@ -92,14 +89,14 @@ def BraTS_2D_Slicer_YOLO():
 
         # Ensure destination directories exist
         for dataset_split in dataset_dir_list:
-            CreateDir(os.path.join(DEST_FOLDER, dataset_split))
-            CreateDir(os.path.join(DEST_FOLDER_GT, dataset_split))
+            CreateDir(os.path.join(dest_img_dir , dataset_split))
+            CreateDir(os.path.join(dest_label_dir, dataset_split))
 
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             for split in dataset_dir_list:
                 input_dir = os.path.join(dataset_dir, split)
-                output_dir = os.path.join(DEST_FOLDER, split)
-                output_dir_gt = os.path.join(DEST_FOLDER_GT, split)
+                output_dir = os.path.join(dest_img_dir , split)
+                output_dir_gt = os.path.join(dest_label_dir, split)
                 executor.submit(GetPatientScan, input_dir, output_dir, output_dir_gt, mod)
 
         print("All directories processed successfully.")
@@ -114,40 +111,40 @@ if __name__ == "__main__":
     """
 
     # -------------------------------------------------------------
-
-    """HYPERPARAMETERS"""
-    DATASET_FOLDER = "dataset_split"
-    DEST_FOLDER = ""
-    DEST_FOLDER_GT = ""
-
-    MIN_SLICE = 30
-    MAX_SLICE = 120
-
     MODALITY = ["t1c" , "t1n", "t2f" ,"t2w"] 
 
     parser = argparse.ArgumentParser(description=des.lstrip(" "), formatter_class=argparse.RawTextHelpFormatter)
     parser.add_argument("--in_dir", type=str,help='input directory of images\t[None]')
     parser.add_argument('--out_dir',type=str,help='output directory prefix\t[None]')
-    parser.add_argument('--train_split', type=float, default=0.7, help='train split percentage\t[0.7]')
-    """CHANGE THIS TO BE MORE USER FRIENDLY"""
-    parser.add_argument('--val_test_split', type=float, default=0.50, help='test and validation split percentage\t[0.15]')
+    parser.add_argument('--min_slice', type=int, help='minimum axial slice index\t[30]')
+    parser.add_argument('--max_slice', type=int, help='maximum axial slice index\t[120]')
+    parser.add_argument('--modality', type=str, choices=MODALITY, nargs='+', help=f'BraTS dataset modalities to use\t[t1c, t1n, t2f, t2w]')
+    parser.add_argument('--img_save_as_np', type=bool, help='positive flag to save as np, do not use it if save image as PNG\t[--save_as_np]')
+    parser.add_argument('--label_save_as_np', type=bool, help='positive flag to save as np, do not use it if save label as PNG\t[--save_as_np]')
     args = parser.parse_args()
 
     if args.in_dir is not None:
-        in_dir = args.in_dir
-    else: raise IOError
+        IN_DIR = args.in_dir
+    else: IN_DIR = "dataset_split"
     if args.out_dir is not None:
-        out_dir = args.out_dir
-    else: out_dir = "dataset_split"
-    if args.train_split is not None:
-        train_split = args.train_split
-    else: train_split = 0.70
-    if args.val_test_split is not None:
-        val_test_split = args.val_test_split
-    else: val_test_split = 0.50
-    
+        OUT_DIR = args.out_dir
+    else: OUT_DIR = "."
+    if args.min_slice is not None:
+        MIN_SLICE = args.min_slice
+    else: MIN_SLICE = 30
+    if args.max_slice is not None:
+        MAX_SLICE = args.max_slice
+    else: MAX_SLICE = 120
+    if args.img_save_as_np is not None:
+        IMG_SAVE_AS_NP = args.save_as_np
+    else: IMG_SAVE_AS_NP = False
+    if args.label_save_as_np is not None:
+        LABEL_SAVE_AS_NP = args.save_as_np
+    else: LABEL_SAVE_AS_NP = False
+    if args.modality is not None:
+        MODALITY = [mod for mod in args.modality]
 
-    print(f"Creating slices from {MIN_SLICE} to {MAX_SLICE} (representing the z-coordinates) in axial view...\n")
-    BraTS_2D_Slicer_YOLO()
-    print("\nFinish slicing, please check your directory\n")
+    print(f"\nCreating slices from {MIN_SLICE} to {MAX_SLICE} (representing the z-coordinates) in axial view...")
+    BraTS_2D_Slicer()
+    print("\nFinish slicing, please check your directory")
 
