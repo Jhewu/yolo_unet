@@ -9,17 +9,17 @@ from torch.amp import GradScaler
 
 if __name__ == "__main__":
     LEARNING_RATE = 3e-4
-    BATCH_SIZE = 32
-    EPOCHS = 2
-    DATA_PATH = "data"
+    BATCH_SIZE = 162
+    EPOCHS = 100
+    DATA_PATH = "unet_dataset/t1c_segmentation/"
     MODEL_SAVE_PATH = "models/unet.pth"
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    train_dataset = CustomDataset(DATA_PATH, "train", "train_masks", 240)
-    # val_dataset = CustomDataset(DATA_PATH, "val", "val_masks", 240)
+    train_dataset = CustomDataset(DATA_PATH, "images/train", "labels/train", 192)
+    val_dataset = CustomDataset(DATA_PATH, "images/val", "labels/val", 192)
 
     generator = torch.Generator().manual_seed(42)
-    train_dataset, val_dataset = random_split(train_dataset, [0.8, 0.2], generator=generator)
+    # train_dataset, val_dataset = random_split(train_dataset, [0.8, 0.2], generator=generator)
 
     train_dataloader = DataLoader(dataset=train_dataset,
                                 batch_size=BATCH_SIZE,

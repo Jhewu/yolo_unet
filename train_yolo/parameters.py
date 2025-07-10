@@ -19,7 +19,7 @@ DATASET = "data"
 """Training"""
 EPOCH = 100
 BATCH = 164
-IMAGE_SIZE = 240
+IMAGE_SIZE = 192
 MIX_PRECISION = True
 
 LOAD_AND_TRAIN = False

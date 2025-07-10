@@ -16,7 +16,7 @@ This repository provides a set of utility scripts to preprocess 3D `.nii.gz` Bra
 ## How to Use
 
 1. **Sign Up to the BraTS Competition:**
-   - Visit the [BraTS challenge website](https://braintumorsegmentation.org/) and sign up to download the dataset.
+   - Visit the [BraTS challenge website](https://www.synapse.org/brats2025) and sign up to download the dataset.
 
 2. **Download the Dataset:**
    - Obtain the BraTS dataset for your desired year or edition.
@@ -36,4 +36,4 @@ This repository provides a set of utility scripts to preprocess 3D `.nii.gz` Bra
     - This will generate 8 directories (depending on the modality of the BraTS competition), `*segmentation` directories are for U-NET and `detection` directories are for YOLO. Example: `t1c_segmentation/`, `t1n_detection/`
 
 ## Requirements
-`TBD` At the moment run, the script and see which packages you're missing. Will compile the list later. 
+`TBD` At the moment, run the script and see which packages you're missing. Will compile the list later. 
