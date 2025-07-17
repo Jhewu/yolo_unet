@@ -81,6 +81,11 @@ def ProcessMask(image_path, label_path, image_dest, label_dest, threshold=10, co
     _, image_binary_mask = cv2.threshold(image, threshold, 255, cv2.THRESH_BINARY)
     _, label_binary_mask = cv2.threshold(label, 250, 255, cv2.THRESH_BINARY)
 
+    # Clean up the mask
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
+    image_binary_mask = cv2.morphologyEx(image_binary_mask, cv2.MORPH_CLOSE, kernel)
+    image_binary_mask = cv2.morphologyEx(image_binary_mask, cv2.MORPH_OPEN, kernel)
+
     contours, _ = cv2.findContours(image_binary_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     cleaned_image = image * image_binary_mask
 
@@ -95,6 +100,11 @@ def ProcessMask(image_path, label_path, image_dest, label_dest, threshold=10, co
     cropped_image = CropCenter(cleaned_image, CROP_SIZE, x_center, y_center)
     cropped_label = CropCenter(label_binary_mask, CROP_SIZE, x_center, y_center)
 
+    if SEGMENTATION: 
+        # rebinarize to the range of [0, 1, 255], as opposed to [0, 255]
+        # such that it can work with the convert to segment function from YOLO
+        cropped_label = (cropped_label / 255).astype(np.uint8)
+    
     # -------------------------------------
     # LEAVE FOR TROUBLESHOOTING
 
@@ -203,6 +213,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=des.lstrip(" "), formatter_class=argparse.RawTextHelpFormatter)
     parser.add_argument("--in_dir", type=str,help='input directory of images\t[None]')
     parser.add_argument('--out_dir',type=str,help='output directory prefix\t[None]')
+    parser.add_argument('--segmentation', action="store_true", help='if for segmentation, binary mask will be [0, 1, 255], not [0, 128, 255]\t[None]')
     parser.add_argument('--modality', type=str, choices=MODALITY, nargs='+', help=f'BraTS dataset modalities to use\t[t1c, t1n, t2f, t2w]')
     parser.add_argument('--crop_size', type=int, help='final NxN image crop\t[192]')
     parser.add_argument('--threshold', type=int, help='threshold for binarizing the image\t[15]')
@@ -226,6 +237,7 @@ if __name__ == "__main__":
     else: WORKERS = 10
     if args.modality is not None:
         MODALITY = [mod for mod in args.modality]
+    SEGMENTATION = args.segmentation
 
     Main()
     print("\nFinish processing images, check your directory\n")

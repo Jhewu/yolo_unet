@@ -1,22 +1,10 @@
 /datasets/*
-!/datasets/all_modality_dataset.yaml
-!/datasets/all_modality_dataset_test.yaml
+!/datasets/data.yaml
 
 /runs/*
-!/runs/yolo11x-seg_all_modality_dataset/
-/runs/yolo11x-seg_all_modality_dataset/weights/
-!/runs/yolo11x-seg_all_modality_dataset/**
+!/runs/object_detection_30_brightness_fliplrup_translateSMALL/
 
 /callbacks/*
-!/callbacks/2024_12_21_06_27_16
 
 *.pt
 __pycache__/
-
-preprocessing/raw_files/
-preprocessing/t1c_dataset/
-preprocessing/t1n_dataset/
-preprocessing/t2f_dataset/
-preprocessing/t2w_dataset/
-preprocessing/BraTS-PEDs2023_Training/
-preprocessing/stack_dataset/

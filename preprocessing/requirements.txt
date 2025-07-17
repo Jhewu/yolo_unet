@@ -1,0 +1,4 @@
+nibabel
+opencv-python
+numpy
+ultralytics

@@ -26,11 +26,19 @@ def ProcessMask(mask_path):
     contours, _ = cv2.findContours(binary_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     objects_info = []
 
+    max_area = 0
     for contour in contours:
         x, y, width, height = cv2.boundingRect(contour)
-        class_label = 0 
-        x_center, y_center, normalized_width, normalized_height = ConvertChordsToYOLO(mask.shape[1], mask.shape[0], x, y, width, height)
-        objects_info.append((class_label, x_center, y_center, normalized_width, normalized_height))
+        if max_area < (width*height):
+            max_area = (width*height)
+            class_label = 0 
+            x_center, y_center, normalized_width, normalized_height = ConvertChordsToYOLO(mask.shape[1], mask.shape[0], x, y, width, height)
+            objects_info = [(class_label, x_center, y_center, normalized_width, normalized_height)]
+
+        # class_label = 0 
+        # x_center, y_center, normalized_width, normalized_height = ConvertChordsToYOLO(mask.shape[1], mask.shape[0], x, y, width, height)
+        # objects_info.append((class_label, x_center, y_center, normalized_width, normalized_height))
+
     return objects_info
 
 def WriteYOLOAnnotations(output_path, image_name, objects_info):
@@ -109,8 +117,6 @@ if __name__ == "__main__":
     parser.add_argument("--in_dir", type=str,help='input directory of images\t[None]')
     parser.add_argument('--out_dir',type=str,help='output directory prefix\t[None]')
     parser.add_argument('--modality', type=str, choices=MODALITY, nargs='+', help=f'BraTS dataset modalities to use\t[t1c, t1n, t2f, t2w]')
-    parser.add_argument('--crop_size', type=int, help='final NxN image crop\t[192]')
-    parser.add_argument('--threshold', type=int, help='threshold for binarizing the image\t[15]')
     parser.add_argument('--workers', type=int, help='number of threads/workers to use\t[10]')
     args = parser.parse_args()
 

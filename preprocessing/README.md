@@ -1,16 +1,20 @@
 # BraTS Dataset 2D Preprocessor for YOLO Object Detection and U-Net Segmentation
 
-![Image Sample](data_sample/image_sample.png)
+![Image Sample](data_sample/singlemodal_sample.png)
+![Image Sample](data_sample/multimodal_sample.png)
 ![Label Sample](data_sample/label_sample.png)
 
 ## Summary
 
-This repository provides a set of utility scripts to preprocess 3D `.nii.gz` Brain Tumor Segmentation Challenge (BraTS) brain scans into 2D "PNG slices" suitable for YOLO object detection and U-Net segmentation training. All functions are accessible via command-line arguments, and help can be accessed using the `--help` option.
+This repository provides a set of utility scripts to preprocess 3D `.nii.gz` Brain Tumor Segmentation Challenge (BraTS) brain scans into 2D "PNG slices" suitable for YOLO object detection, YOLO segmentation, and U-Net segmentation training. All scripts are in the `utils/` directories and are accessible via command-line arguments, and help can be accessed using the `--help` option to view contextual information. 
 
 ## Features
 
 - Converts BraTS `.nii.gz` files to 2D PNG slices.
-- Organizes the output into separate directories for YOLO object detection and U-Net segmentation.
+- Splits into single modalities (e.g., `t1c`, `t1n`, `t2f` and `t2w`)
+- Preprocess, and clean images and masks while applying a central crop (reducing image dimensions)
+- Prepares dataset into U-Net Segmentation, YOLO Object Detection, and YOLO Segmentation formats
+- Stacks all single modality into a multi-modal PNG image
 - Supports easy customization through command-line arguments.
 
 ## How to Use
@@ -26,14 +30,22 @@ This repository provides a set of utility scripts to preprocess 3D `.nii.gz` Bra
    chmod +x process_all_mod.sh
     ```
 4. **Set the Dataset Directory:**
-   - Open process_all_mod.sh and update the DATASET_DIR variable to point to your BraTS dataset directory.
+   - Open process_all_mod.sh and update the `--in_dir` variable to point to your BraTS dataset directory.
    - Alternatively, you can specify the dataset directory directly as a command-line argument.
+   - Please review the bash commands and the comments as this single bash command processes the dataaset for U-Net segmentation, YOLO object detection and YOLO segmentation format or if you want to train in single modality, and not in stack modality. 
 
 5. **Run the Preprocessing Script:**
    ```bash
    ./process_all_mod.sh
     ```
-    - This will generate 8 directories (depending on the modality of the BraTS competition), `*segmentation` directories are for U-NET and `detection` directories are for YOLO. Example: `t1c_segmentation/`, `t1n_detection/`
+    - This will generate 3 directories (U-Net segmentation, YOLO object detection and YOLO segmentation format), and remove all temporary directories, ensure your system have enough storage
 
 ## Requirements
-`TBD` At the moment, run the script and see which packages you're missing. Will compile the list later. 
+1. Create a new conda environment and install the requirements
+
+   ```bash
+   conda create --name brats python=3.12
+   pip install -r requirements.txt
+   conda activate brats
+    ```
+

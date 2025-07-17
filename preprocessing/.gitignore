@@ -1,8 +1,14 @@
 ASNR-MICCAI-BraTS2023-SSA-Challenge-TrainingData_V2/
 BraTS-PEDs2023_Training/
 BraTS2025-GLI-PRE-Challenge-TrainingData/
+
 dataset_split/
 t1c*/
 t1n*/
 t2f*/
 t2w*/
+
+stacked*/
+gli*/
+
+for_later_runs/

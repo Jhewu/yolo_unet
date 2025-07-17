@@ -81,12 +81,33 @@ def RunYOLOv11Seg(mode):
         results = model.train(data=f"./datasets/{DATASET}.yaml", 
                               epochs=EPOCH, 
                               imgsz=IMAGE_SIZE, 
+                              single_cls=SINGLE_CLS, 
+                              close_mosaic=CLOSE_MOSAIC, 
+                              fraction=FRACTION,
+                              freeze=FREEZE,  
+                              cls=CLS, 
+                              box=BOX, 
+                              dfl=DFL, 
                               seed=SEED, 
                               batch=BATCH,
                               amp=MIX_PRECISION, 
-                              plots=True,
+                              multi_scale=MULTI_SCALE, 
+                              cos_lr=COS_LR,
+                              plots=PLOT,
+                              profile=PROFILE,
                               project=f"{MODE}_{MODEL}_{CURRENT_TIME}",
-                              name=f"{MODEL}_{DATASET}")
+                              name=f"{MODEL}_{DATASET}", 
+
+                              # Data Augmentation
+                              hsv_h=HSV_H, 
+                              hsv_s=HSV_S, 
+                              hsv_v=HSV_V, 
+                              degrees=DEGREES,
+                              translate=TRANSLATE,
+                              scale=SCALE,
+                              flipud=FLIPUD, 
+                              fliplr=FLIPLR, 
+                              mosaic=MOSAIC)
         print(f"\nFinish training, please check your directory for folder named 'train-....")
         
     elif mode == "val":

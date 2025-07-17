@@ -129,10 +129,10 @@ if __name__ == "__main__":
     else: OUT_DIR = "."
     if args.min_slice is not None:
         MIN_SLICE = args.min_slice
-    else: MIN_SLICE = 30
+    else: MIN_SLICE = 0
     if args.max_slice is not None:
         MAX_SLICE = args.max_slice
-    else: MAX_SLICE = 120
+    else: MAX_SLICE = 155
     if args.workers is not None:
         WORKERS = args.workers
     else: WORKERS = 10

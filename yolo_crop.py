@@ -135,7 +135,7 @@ def yolo_crop_cpu():
             label_paths = label_full_paths[i:i+BATCH_SIZE]
 
             # Perform inference
-            image_results = model(image_paths)
+            image_results = model(image_paths, conf=CONFIDENCE)
             # label_results = model(label_paths)
 
             # Crop the images from YOLO coordinates (labels use the same crop coordinates as image)
@@ -180,7 +180,7 @@ if __name__ == "__main__":
     else: BATCH_SIZE = 256
     if args.confidence is not None:
         CONFIDENCE = args.confidence
-    else: CONFIDENCE = 90
+    else: CONFIDENCE = 0.70
     if args.workers is not None:
         WORKERS = args.workers
     else: WORKERS = 10
