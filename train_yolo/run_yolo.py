@@ -3,8 +3,9 @@ from ultralytics import YOLO
 import torch 
 import os
 import csv
-import cv2 as cv
+import cv2
 import time
+import torch.nn as nn
 
 """
 TO CHANGE HYPERPARAMETERS GO TO PARAMETERS.PY
@@ -56,94 +57,146 @@ def LogMetricMemorySpeed(trainer):
             writer.writeheader()
         writer.writerows(data)
 
-""""Main Runtime"""
-def RunYOLOv11Seg(mode):
-    global CURRENT_TIME
+def ValYOLO(): 
+    # elif mode == "val":
+    #     print("/\nStarting validation...\n")
+    #     print(f"\nFetching weights from...{BEST_MODEL_DIR_VAL}\n")
+    #     model = YOLO(BEST_MODEL_DIR_VAL)
+    #     results = model.val(plots=True, 
+    #                         name=f"{MODE}_{MODEL}_{DATASET}")
+    #     print("Class indices with average precision:", results.ap_class_index)
+    #     print("Average precision for all classes:", results.box.all_ap)
+    #     print("Average precision:", results.box.ap)
+    #     print("Average precision at IoU=0.50:", results.box.ap50)
+    #     print("Class indices for average precision:", results.box.ap_class_index)
+    #     print("Class-specific results:", results.box.class_result)
+    #     print("F1 score:", results.box.f1)
+    #     print("F1 score curve:", results.box.f1_curve)
+    #     print("Overall fitness score:", results.box.fitness)
+    #     print("Mean average precision:", results.box.map)
+    #     print("Mean average precision at IoU=0.50:", results.box.map50)
+    #     print("Mean average precision at IoU=0.75:", results.box.map75)
+    #     print("Mean average precision for different IoU thresholds:", results.box.maps)
+    #     print("Mean results for different metrics:", results.box.mean_results)
+    #     print("Mean precision:", results.box.mp)
+    #     print("Mean recall:", results.box.mr)
+    #     print("Precision:", results.box.p)
+    #     print("Precision curve:", results.box.p_curve)
+    #     print("Precision values:", results.box.prec_values)
+    #     print("Specific precision metrics:", results.box.px)
+    #     print("Recall:", results.box.r)
+    #     print("Recall curve:", results.box.r_curve)
+    #     print(f"\nFinish validation, please check your directory for folder named 'val-....")
+
+
+    pass
+
+def PredYOLO(): 
+
+        # elif mode == "test":
+    #     print("\nStarting test...\n")
+    #     print(f"\nFetching weights from...{BEST_MODEL_DIR_TEST}\n")
+    #     model = YOLO(BEST_MODEL_DIR_TEST)
+    #     metrics = model.val(data=f"./datasets/{DATASET}_test.yaml",
+    #                         plots=True, 
+    #                         name=f"{MODE}_{MODEL}_{DATASET}"
+    #     )
+    #     print(f"\nmAP50-95: {metrics.seg.map}\n")
+    #     print(f"\nFinish testing, please check your directory for folder named 'test-....")
+    
+    # elif mode == "predict":
+    #     print("\nStarting prediction...\n")
+    #     print(f"\nFetching weights from...{BEST_MODEL_DIR_PREDICT}\n")
+    #     model = YOLO(BEST_MODEL_DIR_PREDICT)
+    #     model.add_callback("on_predict_end", PrintMemoryUsed)
+
+    #     results = model("BraTS-PED-00003-00091-t1c.png")
+        
+    #     # Save the prediction
+    #     for result in results:
+    #         result.save(filename="result.jpg")  # save to disk
+
+    #     print(f"\nFinish prediction, please check your directory for a file named 'results.jpg'")
+
+    pass
+
+def TrainYOLO():
+    # global CURRENT_TIME
     CURRENT_TIME = GetCurrentTime() 
 
-    if mode == "train":
-        print("/\nStarting training...")
-       
-        CreateDir("callbacks")
+    print("/\nStarting training...")
+    CreateDir("callbacks")
 
-        if LOAD_AND_TRAIN: 
-            model = YOLO(BEST_MODEL_DIR_TRAIN)
-        else: 
-            # load pretrained model (recommended for training)
-            model = YOLO(f"{MODEL}.pt")
+    if LOAD_AND_TRAIN: 
+        model = YOLO(BEST_MODEL_DIR_TRAIN)
+    else: 
+        model = YOLO(f"{MODEL}.yaml")
 
-        # add callback for the model
-        # model.add_callback("on_train_epoch_end", LogMetricMemorySpeed)
-
-        print(f"\nThis is dataset {f"./datasets/{DATASET}.yaml"}\n")
-
-        # train the model
-        results = model.train(data=f"./datasets/{DATASET}.yaml", 
-                              epochs=EPOCH, 
-                              imgsz=IMAGE_SIZE, 
-                              single_cls=SINGLE_CLS, 
-                              close_mosaic=CLOSE_MOSAIC, 
-                              fraction=FRACTION,
-                              freeze=FREEZE,  
-                              cls=CLS, 
-                              box=BOX, 
-                              dfl=DFL, 
-                              seed=SEED, 
-                              batch=BATCH,
-                              amp=MIX_PRECISION, 
-                              multi_scale=MULTI_SCALE, 
-                              cos_lr=COS_LR,
-                              plots=PLOT,
-                              profile=PROFILE,
-                              project=f"{MODE}_{MODEL}_{CURRENT_TIME}",
-                              name=f"{MODEL}_{DATASET}", 
-
-                              # Data Augmentation
-                              hsv_h=HSV_H, 
-                              hsv_s=HSV_S, 
-                              hsv_v=HSV_V, 
-                              degrees=DEGREES,
-                              translate=TRANSLATE,
-                              scale=SCALE,
-                              flipud=FLIPUD, 
-                              fliplr=FLIPLR, 
-                              mosaic=MOSAIC)
-        print(f"\nFinish training, please check your directory for folder named 'train-....")
-        
-    elif mode == "val":
-        print("/\nStarting validation...\n")
-        print(f"\nFetching weights from...{BEST_MODEL_DIR_VAL}\n")
-        model = YOLO(BEST_MODEL_DIR_VAL)
-        metrics = model.val(plots=True, 
-                            name=f"{MODE}_{MODEL}_{DATASET}")
-        print(f"\nmAP50-95: {metrics.seg.map}\n")
-        print(f"\nFinish validation, please check your directory for folder named 'val-....")
-
-    elif mode == "test":
-        print("\nStarting test...\n")
-        print(f"\nFetching weights from...{BEST_MODEL_DIR_TEST}\n")
-        model = YOLO(BEST_MODEL_DIR_TEST)
-        metrics = model.val(data=f"./datasets/{DATASET}_test.yaml",
-                            plots=True, 
-                            name=f"{MODE}_{MODEL}_{DATASET}"
+    if model.model.model[0].conv.in_channels != 4:
+        conv = model.model.model[0].conv
+        model.model.model[0].conv = nn.Conv2d(
+            in_channels=4,
+            out_channels=conv.out_channels,
+            kernel_size=conv.kernel_size,
+            stride=conv.stride,
+            padding=conv.padding
         )
-        print(f"\nmAP50-95: {metrics.seg.map}\n")
-        print(f"\nFinish testing, please check your directory for folder named 'test-....")
-    
-    elif mode == "predict":
-        print("\nStarting prediction...\n")
-        print(f"\nFetching weights from...{BEST_MODEL_DIR_PREDICT}\n")
-        model = YOLO(BEST_MODEL_DIR_PREDICT)
-        model.add_callback("on_predict_end", PrintMemoryUsed)
+    print(f"\nModified first conv layer: {model.model.model[0].conv}")
 
-        results = model("BraTS-PED-00003-00091-t1c.png")
+    print(f"\nMaking sure the Model's input layer was changed: {model}")
+
+    # add callback for the model
+    # model.add_callback("on_train_epoch_end", LogMetricMemorySpeed)
+
+    print(f"\nThis is dataset {f"./datasets/{DATASET}.yaml"}\n")
+
+    # train the model
+    results = model.train(data=f"./datasets/{DATASET}.yaml", 
+                            epochs=EPOCH, 
+                            pretrained=PRETRAINED, 
+                            imgsz=IMAGE_SIZE, 
+                            single_cls=SINGLE_CLS, 
+                            close_mosaic=CLOSE_MOSAIC, 
+                            fraction=FRACTION,
+                            freeze=FREEZE,  
+                            lr0=INITIAL_LR, 
+                            lrf=FINAL_LR, 
+                            warmup_epochs=WARMUP_EPOCH, 
+                            cls=CLS, 
+                            box=BOX, 
+                            dfl=DFL, 
+                            seed=SEED, 
+                            batch=BATCH,
+                            amp=MIX_PRECISION, 
+                            multi_scale=MULTI_SCALE, 
+                            cos_lr=COS_LR,
+                            plots=PLOT,
+                            profile=PROFILE,
+                            project=f"{MODE}_{MODEL}_{CURRENT_TIME}",
+                            name=f"{MODEL}_{DATASET}", 
+
+                            # Data Augmentation
+                            hsv_h=HSV_H, 
+                            hsv_s=HSV_S, 
+                            hsv_v=HSV_V, 
+                            degrees=DEGREES,
+                            translate=TRANSLATE,
+                            scale=SCALE,
+                            flipud=FLIPUD, 
+                            fliplr=FLIPLR, 
+                            mosaic=MOSAIC, 
+                            shear=SHEAR, 
+                            perspective=PERSPECTIVE, 
+                            mixup=MIXUP, 
+                            cutmix=CUTMIX)
+
+    print(f"\nMaking sure the Model's input layer was changed: {model}")
+    print(f"\nFinish training, please check your directory for folder named 'train-....")
         
-        # Save the prediction
-        for result in results:
-            result.save(filename="result.jpg")  # save to disk
-
-        print(f"\nFinish prediction, please check your directory for a file named 'results.jpg'")
-
 if __name__ == "__main__":
-    RunYOLOv11Seg(MODE)
+    if MODE == "train": TrainYOLO()
+    elif MODE == "val": ValYOLO()
+    elif MODE == "predict": PredYOLO()
+    else: print("\nPlease Configure a MODE in parameters.py...")
+    
 

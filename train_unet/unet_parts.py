@@ -14,7 +14,6 @@ class DoubleConv(nn.Module):
     def forward(self, x):
         return self.conv_op(x)
 
-
 class DownSample(nn.Module):
     def __init__(self, in_channels, out_channels):
         super().__init__()
@@ -26,7 +25,6 @@ class DownSample(nn.Module):
         p = self.pool(down)
 
         return down, p
-
 
 class UpSample(nn.Module):
     def __init__(self, in_channels, out_channels):

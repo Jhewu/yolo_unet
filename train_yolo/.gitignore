@@ -8,3 +8,8 @@
 
 *.pt
 __pycache__/
+
+ultralytics/
+best_ssa_model/
+pytest.py
+yolo11_4ch.yaml

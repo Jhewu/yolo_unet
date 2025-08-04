@@ -7,7 +7,7 @@ from concurrent.futures import ThreadPoolExecutor
 def CreateDir(folder_name):
    if not os.path.exists(folder_name):
        os.makedirs(folder_name) 
-
+image_path = os.path.join(image_dest_dir, basename)
 def CombinedStack(images): 
     return np.stack(images, axis=-1) 
 
@@ -32,7 +32,6 @@ def StackImages(img_index, mod0_dir, mod0_list, mod1_dir, mod1_list, mod2_dir, m
     print(f"Saving image to...{output_dir}")
     # cv2.imwrite(f"{output_dir}.png", image)
     cv2.imwrite(f"{output_dir}", image)
-
 
 def Main(): 
     mod_to_combine = []
@@ -79,22 +78,22 @@ def Main():
         # -------------------------------------------
         # LEAVE FOR DEBUGGING
         
-        # for img_index in range(len(mod0_list)):
-        #      StackImages(img_index, mod0, mod0_list, 
-        #                          mod1, mod1_list, 
-        #                          mod2, mod2_list, 
-        #                          mod3, mod3_list, 
-        #                          dest_dir_to_save)
-        # -------------------------------------------
-
-
-        with ThreadPoolExecutor(max_workers=WORKERS) as executor:
-             for img_index in range(len(mod0_list)):
-                 executor.submit(StackImages, img_index, mod0, mod0_list, 
+        for img_index in range(len(mod0_list)):
+             StackImages(img_index, mod0, mod0_list, 
                                  mod1, mod1_list, 
                                  mod2, mod2_list, 
                                  mod3, mod3_list, 
                                  dest_dir_to_save)
+        # -------------------------------------------
+
+
+        # with ThreadPoolExecutor(max_workers=WORKERS) as executor:
+        #      for img_index in range(len(mod0_list)):
+        #          executor.submit(StackImages, img_index, mod0, mod0_list, 
+        #                          mod1, mod1_list, 
+        #                          mod2, mod2_list, 
+        #                          mod3, mod3_list, 
+        #                          dest_dir_to_save)
 
     print("All directories copied successfully.")
 

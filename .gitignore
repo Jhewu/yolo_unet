@@ -11,10 +11,11 @@ train_yolo/*.pt
 train_unet/preprocessing/2024_brats_ped
 train_unet/preprocessing/2025_brats_ped
 train_unet/UNet-PyTorch/final_dataset
-train_unet/UNet-PyTorch/unet_dataset/
 
 # new
 yolo_cropped/
 yolo_weights/
 t1c_segmentation/
+stacked_segmentation/
 archive/
+.vscode/

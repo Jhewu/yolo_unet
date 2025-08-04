@@ -27,18 +27,23 @@ This repository provides a set of utility scripts to preprocess 3D `.nii.gz` Bra
 
 3. **Make the Script Executable:**
    ```bash
-   chmod +x process_all_mod.sh
+   chmod +x process_segmentation_detection.sh
+   chmod +x process_yoloseg.sh
     ```
 4. **Set the Dataset Directory:**
-   - Open process_all_mod.sh and update the `--in_dir` variable to point to your BraTS dataset directory.
+   - Open `process_segmentation_detection.sh` (or `process_yoloseg.sh`) and update the `--in_dir` variable to point to your BraTS dataset directory.
    - Alternatively, you can specify the dataset directory directly as a command-line argument.
-   - Please review the bash commands and the comments as this single bash command processes the dataaset for U-Net segmentation, YOLO object detection and YOLO segmentation format or if you want to train in single modality, and not in stack modality. 
-
+   - Please review the bash commands and the comments, if you want to train a single modality and not stacked modality. `process_segmentation_detection.sh` processes the dataset for U-Net segmentation, YOLO object detection, while `process_yoloseg.sh`processes the dataset for YOLO segmentation. 
+   
 5. **Run the Preprocessing Script:**
    ```bash
-   ./process_all_mod.sh
+   ./process_segmentation_detection.sh
     ```
-    - This will generate 3 directories (U-Net segmentation, YOLO object detection and YOLO segmentation format), and remove all temporary directories, ensure your system have enough storage
+    - This will generate 2 directories (U-Net segmentation, YOLO object detection format), and remove all temporary directories, ensure your system have enough storage
+   ```bash
+   ./process_yoloseg.sh
+    ```
+    - This will generate 1 directories (YOLO segmentation format), and remove all temporary directories, ensure your system have enough storage
 
 ## Requirements
 1. Create a new conda environment and install the requirements

@@ -5,7 +5,7 @@ import argparse
 import os
 import cv2
 
-def crop_center(image, crop_size, x_center, y_center, pad_value=(0, 0, 0)):
+def crop_center(image, crop_size, x_center, y_center, pad_value=(0, 0, 0, 0)):
     """
     Crops an image from the center with a specified size. If the desired crop
     exceeds the image boundaries, padding is added.
@@ -47,21 +47,38 @@ def crop_center(image, crop_size, x_center, y_center, pad_value=(0, 0, 0)):
     cropped_image = image[y1_bound:y2_bound, x1_bound:x2_bound]
 
     # Apply padding if necessary
+    # if pad_left > 0 or pad_top > 0 or pad_right > 0 or pad_bottom > 0:
+    #     padding_widths = ((pad_top, pad_bottom), (pad_left, pad_right))
+
+    #     if image.ndim == 3:  # Color image (including 3-channel and 4-channel)
+    #         if not isinstance(pad_value, tuple) or len(pad_value) != image.shape[2]:
+    #             raise ValueError(f"For color images, 'pad_value' must be a tuple with {image.shape[2]} elements.")
+    #         padding_widths += ((0, 0),) # Add padding for channel dimension (no padding)
+    #     elif image.ndim == 2:  # Grayscale image
+    #         if not isinstance(pad_value, (int, float)):
+    #             raise ValueError("For grayscale images, 'pad_value' must be an int or float.")
+    #     else:
+    #         raise ValueError(f"Unsupported image dimensions. Expected 2 (grayscale) or 3 (color with any number of channels), but got {image.ndim}.")
+
+    #     cropped_image = np.pad(cropped_image, padding_widths, mode='constant', constant_values=pad_value)
+
+    # return cropped_image
     if pad_left > 0 or pad_top > 0 or pad_right > 0 or pad_bottom > 0:
+
         # Determine the number of channels for padding
         if image.ndim == 3:  # Color image
-            if not isinstance(pad_value, tuple):
-                raise ValueError("For color images, 'pad_value' must be a tuple (R, G, B).")
+            # if not isinstance(pad_value, tuple):
+            #     raise ValueError("For color images, 'pad_value' must be a tuple (R, G, B, A).")
             # Pad for each channel
             padding_widths = ((pad_top, pad_bottom), (pad_left, pad_right), (0, 0))
-        elif image.ndim == 2:  # Grayscale image
-            if not isinstance(pad_value, (int, float)):
-                raise ValueError("For grayscale images, 'pad_value' must be an int or float.")
-            padding_widths = ((pad_top, pad_bottom), (pad_left, pad_right))
-        else:
-            raise ValueError("Unsupported image dimensions. Expected 2 (grayscale) or 3 (color).")
+            print("\nThis is padding widths ", padding_widths)
+            print("\nThis is image shape ", image.shape)
 
-        cropped_image = np.pad(cropped_image, padding_widths, mode='constant', constant_values=pad_value)
+        elif image.ndim == 2:  # Grayscale image
+            # if not isinstance(pad_value, (int, float)):
+            #     raise ValueError("For grayscale images, 'pad_value' must be an int or float.")
+            padding_widths = ((pad_top, pad_bottom), (pad_left, pad_right)) 
+        cropped_image = np.pad(cropped_image, padding_widths, mode='constant', constant_values=0)
 
     return cropped_image
 
@@ -69,35 +86,48 @@ def create_dir(path):
     if not os.path.exists(path):
         os.makedirs(path)
 
-def crop_from_yolo(results, image_paths, dest_dir): 
-    # Check if there's any objects with a prediction, and obtain such coordinates
+def crop_from_yolo(results, label_paths, image_dest_dir, label_dest_dir): 
+
+    # check if there's any objects with a prediction, and obtain such coordinates
     coords = None
     for result in results: 
         boxes = result.boxes
         if len(boxes) > 0: 
             coords = boxes.xywh[0]
             break
+        
+
+        """
+        VERIFY IF ITS WORKING CORRECTLY, PARTICULARLY AT THE ELSE CONDITION IF THERE'S NO DETECTION
+        
+        """
     
-    # Process images based on whether a prediction was found
+    # process images based on whether a prediction was found
     if coords is not None:
         center_x = int(coords[0])
         center_y = int(coords[1])
-        cropped_images = [crop_center(cv2.imread(path), CROP_SIZE, center_x, center_y) for path in image_paths]
+        """
+        VERIFY IF ITS WORKING CORRECTLY, PARTICULARLY AT THE ELSE CONDITION IF THERE'S NO DETECTION
+        """
+        cropped_images = [crop_center(cv2.imread(path, cv2.IMREAD_UNCHANGED), CROP_SIZE, center_x, center_y) for path in image_paths]
+        cropped_labels = [crop_center(cv2.imread(path, cv2.IMREAD_UNCHANGED), CROP_SIZE, center_x, center_y) for path in label_paths]
     else:
-        cropped_images = [cv2.resize(cv2.imread(path), (CROP_SIZE, CROP_SIZE),  interpolation=cv2.INTER_AREA)
-                            for path in image_paths]
+        cropped_images = [crop_center(cv2.imread(path, cv2.IMREAD_UNCHANGED), CROP_SIZE, col//2, row//2) for path in image_paths]
+        cropped_labels = [crop_center(cv2.imread(path, cv2.IMREAD_UNCHANGED), CROP_SIZE, col//2, row//2) for path in label_paths]
 
     for i, image in enumerate(cropped_images):
-        basename = os.path.basename(image_paths[i])
-        image_path = os.path.join(dest_dir, basename)
-        print(image_path)
-        cv2.imwrite(image_path, image)
+        image_basename = os.path.basename(image_paths[i])
+        label_basename = os.path.basename(label_paths[i])
+        
+        image_path = os.path.join(image_dest_dir, image_basename)
+        label_path = os.path.join(label_dest_dir, label_basename)
 
-def yolo_crop_gpu():
-    """WORK ON FUTURE ITERATION"""
-    pass
+        # print(image_path)
+        # print(label_path)
+        # cv2.imwrite(image_path, image)
+        # cv2.imwrite(label_path, cropped_labels[i])
 
-def yolo_crop_cpu(): 
+def yolo_crop_async(): 
     image_dir = os.path.join(IN_DIR, "images")
     label_dir = os.path.join(IN_DIR, "labels")
 
@@ -116,32 +146,34 @@ def yolo_crop_cpu():
         image_list = os.listdir(image_split_dir)
         label_list = os.listdir(label_split_dir)
 
+        # Ensure image matches label
         image_list.sort(), label_list.sort()
 
         # Construct the full directories of images and labels
         image_full_paths = [os.path.join(image_split_dir, image) for image in image_list]
         label_full_paths = [os.path.join(label_split_dir, image) for image in label_list]
-
-        # Create the destination directory
         create_dir(image_split_dest_dir), create_dir(label_split_dest_dir)
 
-        # Load the model
         model = YOLO(MODEL_DIR)
+
+        image = cv2.imread(image_full_paths[0], cv2.IMREAD_UNCHANGED)
+        row, col, channel = image.shape
 
         # Batch the directories
         for i in range(0, len(image_full_paths), BATCH_SIZE): 
-            # Create the image batches
+            # Create the batches
             image_paths = image_full_paths[i:i+BATCH_SIZE]
             label_paths = label_full_paths[i:i+BATCH_SIZE]
 
             # Perform inference
             image_results = model(image_paths, conf=CONFIDENCE)
-            # label_results = model(label_paths)
+
+            """IMPLEMENT THE FILTERING BLOCK HERE OR SOMEWHERE ELSE, YOLO AUTOMATICALLY DISCARD OR GATES IMAGES"""
+            crop_from_yolo(image_results, image_paths, label_paths, image_split_dest_dir, label_split_dest_dir)
 
             # Crop the images from YOLO coordinates (labels use the same crop coordinates as image)
-            with ThreadPoolExecutor(max_workers=WORKERS) as executor: 
-                executor.submit(crop_from_yolo, image_results, image_paths, image_split_dest_dir)
-                executor.submit(crop_from_yolo, image_results, label_paths, label_split_dest_dir)
+            # with ThreadPoolExecutor(max_workers=WORKERS) as executor: 
+            #     executor.submit(crop_from_yolo, image_results, image_paths, label_paths, image_split_dest_dir, label_split_dest_dir)
 
 if __name__ == "__main__": 
     # ---------------------------------------------------
@@ -156,16 +188,21 @@ if __name__ == "__main__":
     parser.add_argument("--in_dir", type=str,help='input directory of images\t[None]')
     parser.add_argument('--out_dir',type=str,help='output directory prefix\t[None]')
     parser.add_argument("--model_dir", type=str,help='YOLO model directory\t[None]')
-    parser.add_argument('--crop_size', type=int, help='final NxN image crop\t[64]')
-    parser.add_argument('--batch_size', type=int, help='batch size used to process YOLO, depending on your GPU capabilities\t[64]')
+
     parser.add_argument('--confidence', type=int, help='confidence for binarizing the image\t[15]')
+    parser.add_argument('--crop_size', type=int, help='final NxN image crop\t[64]')
     parser.add_argument('--workers', type=int, help='number of threads/workers to use\t[10]')
+    parser.add_argument('--use_cpu', action='store_true', help='Use cpu for inference (YOLO on multiple threads), if not set, it defaults to GPU')
+    parser.add_argument('--batch_size', type=int, help='batch size used to process YOLO, depending on your GPU capabilities\t[64]')
+
+    parser.add_argument('--filter', action='store_true', help='Enable YOLO Gating, discard images under the confidence score')
 
     args = parser.parse_args()
 
+    """REORGANIZE THESE IN THE FUTURE"""
     if args.in_dir is not None:
         IN_DIR = args.in_dir
-    else: IN_DIR = "t1c_segmentation"
+    else: IN_DIR = "stacked_segmentation"
     if args.out_dir is not None:
         OUT_DIR = args.out_dir
     else: OUT_DIR = "yolo_cropped"
@@ -174,18 +211,21 @@ if __name__ == "__main__":
     else: MODEL_DIR = "yolo_weights/best.pt"
     if args.crop_size is not None:
         CROP_SIZE = args.crop_size
-    else: CROP_SIZE = 96
+    else: CROP_SIZE = 176
     if args.batch_size is not None:
         BATCH_SIZE = args.batch_size
-    else: BATCH_SIZE = 256
+    else: BATCH_SIZE = 1024
     if args.confidence is not None:
         CONFIDENCE = args.confidence
     else: CONFIDENCE = 0.70
     if args.workers is not None:
         WORKERS = args.workers
     else: WORKERS = 10
+    if args.filter is not None:
+        FILTER = args.filter
+    else: FILTER = False
+    if args.use_cpu is not None:
+        USE_CPU = args.use_cpu
+    else: USE_CPU = False
 
-    MODE = "cpu"
-    if MODE == "cpu":
-        yolo_crop_cpu()
-    else: yolo_crop_gpu()
+    yolo_crop_async()

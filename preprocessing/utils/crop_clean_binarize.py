@@ -76,44 +76,74 @@ def ProcessMask(image_path, label_path, image_dest, label_dest, threshold=10, co
     else:
         image = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
         label = cv2.imread(label_path, cv2.IMREAD_GRAYSCALE)
-
-    # Image processing
-    _, image_binary_mask = cv2.threshold(image, threshold, 255, cv2.THRESH_BINARY)
-    _, label_binary_mask = cv2.threshold(label, 250, 255, cv2.THRESH_BINARY)
-
-    # Clean up the mask
-    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
-    image_binary_mask = cv2.morphologyEx(image_binary_mask, cv2.MORPH_CLOSE, kernel)
-    image_binary_mask = cv2.morphologyEx(image_binary_mask, cv2.MORPH_OPEN, kernel)
-
-    contours, _ = cv2.findContours(image_binary_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    cleaned_image = image * image_binary_mask
-
-    max_area = 0
-    for contour in contours:
-        x, y, width, height = cv2.boundingRect(contour)
-        if max_area < (width*height):
-            max_area = (width*height)
-            x_center = (x + width // 2)
-            y_center = (y + height // 2)
-
-    cropped_image = CropCenter(cleaned_image, CROP_SIZE, x_center, y_center)
-    cropped_label = CropCenter(label_binary_mask, CROP_SIZE, x_center, y_center)
-
-    if SEGMENTATION: 
-        # rebinarize to the range of [0, 1, 255], as opposed to [0, 255]
-        # such that it can work with the convert to segment function from YOLO
-        cropped_label = (cropped_label / 255).astype(np.uint8)
     
-    # -------------------------------------
-    # LEAVE FOR TROUBLESHOOTING
+    row, col = image.shape
 
-    # cv2.imshow("original", image)
-    # cv2.imshow("cropped", cropped_image)
-    # cv2.waitKey(0)
-    # cv2.destroyAllWindows()
+    if np.all(image == 0): 
+        """
+        NOTE TO FUTURE SELF: 
+        Currently, this script contains a flaw, and it will skip
+        all images containing "0" thus creating an uneven amount 
+        of images across modality, making the stacking function
+        not work correctly. The resizing aims to fix this issue
+        """
 
-    # -------------------------------------
+        cropped_image = CropCenter(image, CROP_SIZE, col//2, row//2)
+        cropped_label = CropCenter(label, CROP_SIZE, col//2, row//2)
+
+        if SEGMENTATION: 
+            # rebinarize to the range of [0, 1, 255], as opposed to [0, 255]
+            # such that it can work with the convert to segment function from YOLO
+            cropped_label = (cropped_label / 255).astype(np.uint8)
+
+    else: 
+        # Image processing
+        _, image_binary_mask = cv2.threshold(image, threshold, 255, cv2.THRESH_BINARY)
+        _, label_binary_mask = cv2.threshold(label, 250, 255, cv2.THRESH_BINARY)
+
+        # Clean up the mask
+        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
+        image_binary_mask = cv2.morphologyEx(image_binary_mask, cv2.MORPH_CLOSE, kernel)
+        image_binary_mask = cv2.morphologyEx(image_binary_mask, cv2.MORPH_OPEN, kernel)
+
+        contours, _ = cv2.findContours(image_binary_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        cleaned_image = image * image_binary_mask
+
+        max_area = 0
+        if len(contours) == 0: 
+            cropped_image = CropCenter(image, CROP_SIZE, col//2, row//2)
+            cropped_label = CropCenter(label, CROP_SIZE, col//2, row//2)
+
+            if SEGMENTATION: 
+                # rebinarize to the range of [0, 1, 255], as opposed to [0, 255]
+                # such that it can work with the convert to segment function from YOLO
+                cropped_label = (cropped_label / 255).astype(np.uint8)
+        
+        else: 
+            for contour in contours:
+                x, y, width, height = cv2.boundingRect(contour)
+                if max_area < (width*height):
+                    max_area = (width*height)
+                    x_center = (x + width // 2)
+                    y_center = (y + height // 2)
+
+            cropped_image = CropCenter(cleaned_image, CROP_SIZE, x_center, y_center)
+            cropped_label = CropCenter(label_binary_mask, CROP_SIZE, x_center, y_center)
+
+            if SEGMENTATION: 
+                # rebinarize to the range of [0, 1, 255], as opposed to [0, 255]
+                # such that it can work with the convert to segment function from YOLO
+                cropped_label = (cropped_label / 255).astype(np.uint8)
+            
+            # -------------------------------------
+            # LEAVE FOR TROUBLESHOOTING
+
+            # cv2.imshow("original", image)
+            # cv2.imshow("cropped", cropped_image)
+            # cv2.waitKey(0)
+            # cv2.destroyAllWindows()
+
+            # -------------------------------------
 
     cropped_image_path = os.path.join(image_dest, os.path.basename(image_path))
     cropped_label_path = os.path.join(label_dest, os.path.basename(label_path))
@@ -163,7 +193,7 @@ def Main():
         #     label_list.sort()
 
         #     # iterate through the indexes
-        #     for i in range( len(image_list) ):
+        #     for i in range( len(image_list)):
         #         image_path = os.path.join(image_split_path, image_list[i])
         #         label_path = os.path.join(label_split_path, label_list[i])
         #         ProcessMask(image_path, label_path, dest_image_split_dir, dest_label_split_dir)

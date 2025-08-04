@@ -2,14 +2,13 @@
 
 ## -------------------------------------------------
 ## This script it's for processing BraTS dataset for
-## both YOLO object detection, YOLO segmentation and U
-## NET Training
+## both YOLO object detection, and U-NET Training
 
 ## After running this bash script, it will create
 ## temporary directions and remove them, leaving three
-## directories: (1) stacked_detection, (2) stacked_segmentation
-## and (3) stacked_yoloseg for each respective tasks
-## (all four modalities stacked onto each PNG channel)
+## directories: (1) stacked_detection, and (2) stacked_segmentation
+## for each respective tasks (all four modalities stacked onto 
+## each PNG channel)
 ## -------------------------------------------------
 
 ## For UNET Segmentation
@@ -32,9 +31,6 @@ python3 utils/copy_labels.py --dataset segmentation
 python3 utils/stack_images.py --dataset detection
 python3 utils/copy_labels.py --dataset detection
 
-python3 utils/stack_images.py --dataset yoloseg
-python3 utils/copy_labels.py --dataset yoloseg
-
 ## Remove Trash (Optional)
 rm -r ./dataset_split
 rm -r ./t1c
@@ -52,8 +48,3 @@ rm -r ./t1c_detection
 rm -r ./t1n_detection
 rm -r ./t2f_detection
 rm -r ./t2w_detection
-
-rm -r ./t1c_yoloseg
-rm -r ./t1n_yoloseg
-rm -r ./t2f_yoloseg
-rm -r ./t2w_yoloseg
