@@ -13,7 +13,7 @@ SEED = 42
 
 ## Training parameters
 PRETRAINED = False
-EPOCH = 30
+EPOCH = 1
 BATCH = 512
 IMAGE_SIZE = 192
 CLOSE_MOSAIC = 0
