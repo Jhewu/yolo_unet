@@ -1,11 +1,10 @@
-# Import Libraries
+from custom_yolo.custom_train import CustomDetectionTrainer
 from ultralytics import YOLO
+import torch.nn as nn
 import torch 
 import os
 import csv
-import cv2
 import time
-import torch.nn as nn
 
 """
 TO CHANGE HYPERPARAMETERS GO TO PARAMETERS.PY
@@ -39,13 +38,10 @@ def LogMetricMemorySpeed(trainer):
     # get the current GPU memory usage (in MB)
     memory_used = torch.cuda.memory_allocated() / (1024 ** 2)
 
-    # get epoch
     epoch = trainer.epoch
-
-    # get metric
     mAP = trainer.metrics["metrics/mAP50-95(M)"]
 
-    # write csv_file to directory
+    # Write csv_file to directory
     data = [{'epoch': epoch, 'mAP50-95': mAP, 'time': TIME, 'memory': memory_used}]
     CreateDir(f"callbacks/{CURRENT_TIME}")
     callback_dir = f"callbacks/{CURRENT_TIME}/csv_callbacks_{DATASET}_{MODEL}_{MODE}.csv"
@@ -121,76 +117,63 @@ def PredYOLO():
     pass
 
 def TrainYOLO():
-    # global CURRENT_TIME
-    CURRENT_TIME = GetCurrentTime() 
-
-    print("/\nStarting training...")
+    print("\nStarting Training...")
     CreateDir("callbacks")
 
-    if LOAD_AND_TRAIN: 
-        model = YOLO(BEST_MODEL_DIR_TRAIN)
-    else: 
-        model = YOLO(f"{MODEL}.yaml")
-
-    if model.model.model[0].conv.in_channels != 4:
-        conv = model.model.model[0].conv
-        model.model.model[0].conv = nn.Conv2d(
-            in_channels=4,
-            out_channels=conv.out_channels,
-            kernel_size=conv.kernel_size,
-            stride=conv.stride,
-            padding=conv.padding
-        )
-    print(f"\nModified first conv layer: {model.model.model[0].conv}")
-
-    print(f"\nMaking sure the Model's input layer was changed: {model}")
-
-    # add callback for the model
+    # Add callback for the model
     # model.add_callback("on_train_epoch_end", LogMetricMemorySpeed)
 
     print(f"\nThis is dataset {f"./datasets/{DATASET}.yaml"}\n")
 
-    # train the model
-    results = model.train(data=f"./datasets/{DATASET}.yaml", 
-                            epochs=EPOCH, 
-                            pretrained=PRETRAINED, 
-                            imgsz=IMAGE_SIZE, 
-                            single_cls=SINGLE_CLS, 
-                            close_mosaic=CLOSE_MOSAIC, 
-                            fraction=FRACTION,
-                            freeze=FREEZE,  
-                            lr0=INITIAL_LR, 
-                            lrf=FINAL_LR, 
-                            warmup_epochs=WARMUP_EPOCH, 
-                            cls=CLS, 
-                            box=BOX, 
-                            dfl=DFL, 
-                            seed=SEED, 
-                            batch=BATCH,
-                            amp=MIX_PRECISION, 
-                            multi_scale=MULTI_SCALE, 
-                            cos_lr=COS_LR,
-                            plots=PLOT,
-                            profile=PROFILE,
-                            project=f"{MODE}_{MODEL}_{CURRENT_TIME}",
-                            name=f"{MODEL}_{DATASET}", 
+    args = dict(# General 
+                model=f"{MODEL}.pt", 
+                data=f"datasets/{DATASET}.yaml", 
+                epochs=EPOCH, 
+                pretrained=PRETRAINED, 
+                imgsz=IMAGE_SIZE, 
+                single_cls=SINGLE_CLS, 
+                close_mosaic=CLOSE_MOSAIC, 
+                fraction=FRACTION,
+                freeze=FREEZE,  
+                lr0=INITIAL_LR, 
+                lrf=FINAL_LR, 
+                warmup_epochs=WARMUP_EPOCH, 
+                cls=CLS, 
+                box=BOX, 
+                dfl=DFL, 
+                seed=SEED, 
+                batch=BATCH,
+                amp=MIX_PRECISION, 
+                multi_scale=MULTI_SCALE, 
+                cos_lr=COS_LR,
+                plots=PLOT,
+                profile=PROFILE,
+                project=f"{MODE}_{MODEL}_{GetCurrentTime()}",
+                name=f"{MODEL}_{DATASET}", 
+                
+                # Data Augmentation
+                hsv_h=HSV_H, 
+                hsv_s=HSV_S, 
+                hsv_v=HSV_V, 
+                degrees=DEGREES,
+                translate=TRANSLATE,
+                scale=SCALE,
+                flipud=FLIPUD, 
+                fliplr=FLIPLR, 
+                mosaic=MOSAIC, 
+                shear=SHEAR, 
+                perspective=PERSPECTIVE, 
+                mixup=MIXUP, 
+                cutmix=CUTMIX)
+    
+    if LOAD_AND_TRAIN: 
+        print("\nLoading and Training...")
+        args["model"] = BEST_MODEL_DIR_TRAIN, args["resume"] = True
+    
+    trainer = CustomDetectionTrainer(overrides=args)
+    trainer.train()
 
-                            # Data Augmentation
-                            hsv_h=HSV_H, 
-                            hsv_s=HSV_S, 
-                            hsv_v=HSV_V, 
-                            degrees=DEGREES,
-                            translate=TRANSLATE,
-                            scale=SCALE,
-                            flipud=FLIPUD, 
-                            fliplr=FLIPLR, 
-                            mosaic=MOSAIC, 
-                            shear=SHEAR, 
-                            perspective=PERSPECTIVE, 
-                            mixup=MIXUP, 
-                            cutmix=CUTMIX)
-
-    print(f"\nMaking sure the Model's input layer was changed: {model}")
+    print(f"\Ensuring the Model's input layer was changed: {trainer.setup_model()}")
     print(f"\nFinish training, please check your directory for folder named 'train-....")
         
 if __name__ == "__main__":
