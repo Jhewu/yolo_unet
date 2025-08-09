@@ -13,7 +13,7 @@ SEED = 42
 
 ## Training parameters
 PRETRAINED = False
-EPOCH = 1
+EPOCH = 5
 BATCH = 512
 IMAGE_SIZE = 192
 CLOSE_MOSAIC = 0
@@ -41,7 +41,7 @@ HSV_H = 0.0
 HSV_S = 0.0
 MOSAIC = 0.0
 
-HSV_V = 0.25
+HSV_V = 0.0 # 0.25, previously, but with 4-channels, it does not work anymore
 TRANSLATE = 0.1
 SCALE = 0.25
 FLIPUD = 0.5
