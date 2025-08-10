@@ -126,7 +126,7 @@ def TrainYOLO():
     print(f"\nThis is dataset {f"./datasets/{DATASET}.yaml"}\n")
 
     args = dict(# General 
-                model=f"{MODEL}.pt", 
+                model=f"{MODEL}.yaml", 
                 data=f"datasets/{DATASET}.yaml", 
                 epochs=EPOCH, 
                 pretrained=PRETRAINED, 
@@ -168,12 +168,13 @@ def TrainYOLO():
     
     if LOAD_AND_TRAIN: 
         print("\nLoading and Training...")
-        args["model"] = BEST_MODEL_DIR_TRAIN, args["resume"] = True
+        args["model"] = BEST_MODEL_DIR_TRAIN
+        args["resume"] = RESUME
     
     trainer = CustomDetectionTrainer(overrides=args)
     trainer.train()
 
-    print(f"\Ensuring the Model's input layer was changed: {trainer.setup_model()}")
+    print(f"\nEnsuring the Model's input layer was changed: {trainer.setup_model()}")
     print(f"\nFinish training, please check your directory for folder named 'train-....")
         
 if __name__ == "__main__":
@@ -181,5 +182,3 @@ if __name__ == "__main__":
     elif MODE == "val": ValYOLO()
     elif MODE == "predict": PredYOLO()
     else: print("\nPlease Configure a MODE in parameters.py...")
-    
-

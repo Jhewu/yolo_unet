@@ -1,7 +1,7 @@
 from ultralytics.models.yolo.detect import DetectionTrainer
 from ultralytics.nn.tasks import DetectionModel
 from ultralytics.utils.torch_utils import de_parallel
-from custom_build_data import build_yolo_dataset
+from custom_yolo.custom_build_data import build_yolo_dataset
 from ultralytics.utils import RANK
 from typing import Optional
 

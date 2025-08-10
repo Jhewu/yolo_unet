@@ -13,14 +13,15 @@ SEED = 42
 
 ## Training parameters
 PRETRAINED = False
-EPOCH = 100
+RESUME = False
+EPOCH = 50
 BATCH = 512
 IMAGE_SIZE = 192
 CLOSE_MOSAIC = 0
 FRACTION = 1.0
-INITIAL_LR = 1e-5
-FINAL_LR = 1e-5
-WARMUP_EPOCH = 3
+INITIAL_LR = 1e-8
+FINAL_LR = 1e-8
+WARMUP_EPOCH = 10
 
 COS_LR = True
 PROFILE = False
@@ -29,7 +30,7 @@ SINGLE_CLS = True
 MIX_PRECISION = True
 PLOT = True
 
-FREEZE = 0 # 10
+FREEZE = 10
 
 # Loss Weights
 CLS=0.5 
@@ -53,8 +54,9 @@ PERSPECTIVE = 0.001 # 0.010 use it carefully
 MIXUP = 0.0 # 0.5 maybe a good and also bad idea
 CUTMIX = 0.0 # maybe but l
 
-LOAD_AND_TRAIN = False
-BEST_MODEL_DIR_TRAIN = "weights/best.pt"
+LOAD_AND_TRAIN = True
+BEST_MODEL_DIR_TRAIN = "/home/jun/Desktop/inspirit/yolo_unet/train_yolo/train_yolo11s_2025_08_08_23_48_29/yolo11s_data/weights/best.pt"
+
 
 """Validation"""
 BEST_MODEL_DIR_VAL = "yolo11n-seg_all_modality_dataset/weights/best.pt"
@@ -65,3 +67,5 @@ BEST_MODEL_DIR_TEST = "yolo11n-seg_all_modality_dataset/weights/best.pt"
 """Predict"""
 BEST_MODEL_DIR_PREDICT = "yolo11n-seg_all_modality_dataset/weights/best.pt"
 IMAGE_TO_TEST = "BraTS-PED-00003-00091-t1c.png"
+
+

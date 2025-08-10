@@ -1,7 +1,7 @@
+from custom_yolo.custom_data import CustomYOLODataset
 from ultralytics.cfg import IterableSimpleNamespace
 from ultralytics.utils import colorstr
 from typing import Any, Dict
-from custom_data import CustomYOLODataset
 
 def build_yolo_dataset(
     cfg: IterableSimpleNamespace,
