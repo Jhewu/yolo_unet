@@ -20,14 +20,14 @@ class CustomDataset(Dataset):
         self.transform = transforms.Compose([
             transforms.Resize((image_size, image_size)),
             transforms.ToTensor(),
-            transforms.Normalize(mean=(0.5, ), std=(0.5, ))])
+            ])
         
         self.isnpy = isnpy
 
     def __getitem__(self, index):
         if self.isnpy: 
             img = np.load(self.images[index])
-            img = np.load(self.masks[index])
+            mask = np.load(self.masks[index])
         else: 
             img = Image.open(self.images[index]).convert("RGBA")
             mask = Image.open(self.masks[index]).convert("L")

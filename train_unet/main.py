@@ -55,8 +55,8 @@ def calculate_pos_weight(train_dataloader, device):
 
 def train_unet(): 
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    train_dataset = CustomDataset(DATA_PATH, "images/train", "labels/train", 192)
-    val_dataset = CustomDataset(DATA_PATH, "images/val", "labels/val", 192)
+    train_dataset = CustomDataset(DATA_PATH, "images/train", "labels/train", IMAGE_SIZE)
+    val_dataset = CustomDataset(DATA_PATH, "images/val", "labels/val", IMAGE_SIZE)
 
     train_dataloader = DataLoader(dataset=train_dataset,
                                 batch_size=BATCH_SIZE,
@@ -67,10 +67,11 @@ def train_unet():
 
     model = UNet(in_channels=4, widths=WIDTHS, num_classes=1).to(device)
 
-    summary(model, input_size=(BATCH_SIZE, 4, 192, 192))
+    summary(model, input_size=(BATCH_SIZE, 4, IMAGE_SIZE, IMAGE_SIZE))
 
     # pos_weight = calculate_pos_weight(train_dataloader, device)
-    pos_weight = torch.tensor(32.0).to(device)
+    # print(f"\nATTENTION: This is the new pos_weight {pos_weight}")
+    # pos_weight = torch.tensor(32.0).to(device)
     
     optimizer = optim.AdamW(model.parameters(), lr=LEARNING_RATE)
     # criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
@@ -137,11 +138,12 @@ def train_unet():
 
 if __name__ == "__main__":
     LEARNING_RATE = 3e-4
+    IMAGE_SIZE = 192
     BATCH_SIZE = 128
     WIDTHS = [32, 64, 128, 256]
     EPOCHS = 30
     MIX_PRECISION = True
-    DATA_PATH = "stacked_segmentation/"
+    DATA_PATH = "yolo_cropped/"
     MODEL_SAVE_PATH = "models/unet.pth"
 
     train_unet()

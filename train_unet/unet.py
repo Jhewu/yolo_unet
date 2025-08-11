@@ -39,3 +39,4 @@ class UNet(nn.Module):
 
         out = self.output(up_output)
         return out
+    """COULD IMPLEMENT THE TRAINING/VAL/PREDICT FUNCTION HERE"""
