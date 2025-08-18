@@ -124,7 +124,7 @@ if __name__ == "__main__":
     SINGLE_IMAGE_LABEL = "BraTS-SSA-00041-00036-t1c.png"
     SINGLE_IMAGE = "yolo_cropped/images/test/BraTS-SSA-00041-00036-t1c.png"
 
-    MODEL_PATH = "runs/unet_2025_08_10_23_52_12/weights/best.pth"
+    MODEL_PATH = "runs/unet_2025_08_11_15_09_46/weights/best.pth"
     WIDTHS = [32, 64, 128, 256]
     IMAGE_SIZE = 128
 

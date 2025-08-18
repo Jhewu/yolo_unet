@@ -19,8 +19,8 @@ BATCH = 512
 IMAGE_SIZE = 192
 CLOSE_MOSAIC = 0
 FRACTION = 1.0
-INITIAL_LR = 1e-8
-FINAL_LR = 1e-8
+INITIAL_LR = 1e-7
+FINAL_LR = 1e-7
 WARMUP_EPOCH = 10
 
 COS_LR = True
@@ -34,8 +34,8 @@ FREEZE = 10
 
 # Loss Weights
 CLS=0.5 
-BOX=6.5 # 7.5 
-DFL=2.5 # 1.5
+BOX=6 # 6.5 # 7.5 
+DFL=3.5 # 2.5 # 1.5
 
 ## Augmentation parameters 
 HSV_H = 0.0
@@ -56,7 +56,6 @@ CUTMIX = 0.0 # maybe but l
 
 LOAD_AND_TRAIN = True
 BEST_MODEL_DIR_TRAIN = "/home/jun/Desktop/inspirit/yolo_unet/train_yolo/train_yolo11s_2025_08_08_23_48_29/yolo11s_data/weights/best.pt"
-
 
 """Validation"""
 BEST_MODEL_DIR_VAL = "yolo11n-seg_all_modality_dataset/weights/best.pt"

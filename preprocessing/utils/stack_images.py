@@ -7,7 +7,7 @@ from concurrent.futures import ThreadPoolExecutor
 def CreateDir(folder_name):
    if not os.path.exists(folder_name):
        os.makedirs(folder_name) 
-image_path = os.path.join(image_dest_dir, basename)
+
 def CombinedStack(images): 
     return np.stack(images, axis=-1) 
 
@@ -16,7 +16,6 @@ def StackImages(img_index, mod0_dir, mod0_list, mod1_dir, mod1_list, mod2_dir, m
     img2_dir = os.path.join(mod1_dir, mod1_list[img_index])
     img3_dir = os.path.join(mod2_dir, mod2_list[img_index])
     img4_dir = os.path.join(mod3_dir, mod3_list[img_index])
-
 
     img1 = cv2.imread(img1_dir, cv2.IMREAD_GRAYSCALE)  # Read as grayscale if needed
     img2 = cv2.imread(img2_dir, cv2.IMREAD_GRAYSCALE)
@@ -44,14 +43,22 @@ def Main():
         mod0 = os.path.join(mod_to_combine[0], split)
         mod0_list = os.listdir(mod0)
 
+        print(f"\nThis is the order {mod0}")
+
         mod1 = os.path.join(mod_to_combine[1], split)
         mod1_list = os.listdir(mod1)
+
+        print(f"This is the order {mod1}")
 
         mod2 = os.path.join(mod_to_combine[2], split)
         mod2_list = os.listdir(mod2)
 
+        print(f"This is the order {mod2}")
+
         mod3 = os.path.join(mod_to_combine[3], split)
         mod3_list = os.listdir(mod3)
+
+        print(f"This is the order {mod3}")
 
         # Use ThreadPoolExecutor to sort the lists in parallel
         with ThreadPoolExecutor(max_workers=10) as executor:

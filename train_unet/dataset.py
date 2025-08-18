@@ -5,7 +5,7 @@ from torchvision import transforms
 from torch.utils.data.dataset import Dataset
 
 class CustomDataset(Dataset):
-    def __init__(self, root_path, image_path, mask_path, image_size, isnpy=False):
+    def __init__(self, root_path, image_path, mask_path, image_size, subsample=1.0, isnpy=False):
         self.root_path = root_path
         self.images = sorted([root_path+f"/{image_path}/"+i for i in os.listdir(root_path+f"/{image_path}/")])
         self.masks = sorted([root_path+f"/{mask_path}/"+i for i in os.listdir(root_path+f"/{mask_path}/")])
@@ -14,8 +14,8 @@ class CustomDataset(Dataset):
             raise ValueError("Length of images and masks are not the same")
         
         # SUBSAMPLE IMPLEMENTED HERE
-        self.images = self.images[:int(len(self.images)*0.5)]
-        self.masks = self.masks[:int(len(self.masks)*0.5)]
+        self.images = self.images[:int(len(self.images)*subsample)]
+        self.masks = self.masks[:int(len(self.masks)*subsample)]
         
         self.transform = transforms.Compose([
             transforms.Resize((image_size, image_size)),

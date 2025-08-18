@@ -1,6 +1,6 @@
 import torch
-from torch import optim, nn
-from torch.utils.data import DataLoader, random_split
+from torch import optim
+from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 from unet import UNet
@@ -29,7 +29,7 @@ def plot_loss_curves(history, save_path):
     plt.plot(history["val_dice_metric"], label="Validation DICE Score", color="green")
     plt.title("Training and Validation Loss Over Epochs")
     plt.xlabel("Epochs")
-    plt.ylabel("Loss/Metric (DICE Loss)")
+    plt.ylabel("Loss/Metric")
     plt.legend()
     plt.grid(True)
     plt.savefig(os.path.join(save_path, "plot.png"))
@@ -79,7 +79,7 @@ def train_unet():
     device = "cuda" if torch.cuda.is_available() else "cpu"
     
     train_dataset = CustomDataset(DATA_PATH, "images/train", "labels/train", IMAGE_SIZE)
-    val_dataset = CustomDataset(DATA_PATH, "images/val", "labels/val", IMAGE_SIZE)
+    val_dataset = CustomDataset(DATA_PATH, "images/test", "labels/test", IMAGE_SIZE)
 
     train_dataloader = DataLoader(dataset=train_dataset,
                                 batch_size=BATCH_SIZE,
@@ -89,6 +89,9 @@ def train_unet():
                                 shuffle=True)
 
     model = UNet(in_channels=4, widths=WIDTHS, num_classes=1).to(device)
+    if LOAD_AND_TRAIN: 
+        model.load_state_dict(torch.load(MODEL_PATH, map_location=torch.device(device)))
+
     summary(model, input_size=(BATCH_SIZE, 4, IMAGE_SIZE, IMAGE_SIZE))
 
     optimizer = optim.AdamW(model.parameters(), lr=LEARNING_RATE)
@@ -187,12 +190,15 @@ def train_unet():
     plot_loss_curves(history, dest_dir)
 
 if __name__ == "__main__":
-    LEARNING_RATE = 3e-4
-    IMAGE_SIZE = 192
-    BATCH_SIZE = 256
-    WIDTHS = [32, 64, 128, 256]
-    EPOCHS = 100
+    IMAGE_SIZE = 128
     MIX_PRECISION = True
-    DATA_PATH = "stacked_segmentation/"
+    DATA_PATH = "yolo_cropped"
+    WIDTHS = [32, 64, 128, 256]
+    BATCH_SIZE = 128
+    LEARNING_RATE = 1e-4
+    EPOCHS = 30
+
+    LOAD_AND_TRAIN = False
+    MODEL_PATH = "runs/2025_08_11_00_53_48_yolo_cropped/weights/best.pth"
 
     train_unet()

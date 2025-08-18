@@ -8,4 +8,7 @@ data
 .vscode/
 archive/
 
+yolo_cropped_80/
+yolo_cropped_marging/
+
 runs/*
