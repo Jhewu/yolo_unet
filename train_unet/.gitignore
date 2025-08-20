@@ -12,3 +12,8 @@ yolo_cropped_80/
 yolo_cropped_marging/
 
 runs/*
+
+ground_truth_cropped/
+ground_truth_cropped_discarded/
+
+reconstructed*/

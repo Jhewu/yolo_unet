@@ -1,5 +1,7 @@
+import os
 import cv2
 import torch 
+import numpy as np
 from tqdm import tqdm
 
 def dice_metric(pred, target, smooth=1):
@@ -29,25 +31,35 @@ def dice_metric(pred, target, smooth=1):
     
     return dice.mean()  # Average across batch
 
-def evaluate_ensemble(pred_dir, label_dir, dest_dir): 
+def evaluate_ensemble(pred_dir, label_dir): 
 
     # Obtain the pred and labels 
-    pred_paths = sorted([pred_dir+"/"+i for i in os.listdir(pred_dir+"/")])
+    # pred_paths = sorted([pred_dir+"/"+i for i in os.listdir(pred_dir+"/")])
     label_paths = sorted([label_dir+"/"+i for i in os.listdir(label_dir+"/")])
 
     total_dice = 0             
-    for i, pred_path in enumerate(tqdm(pred_paths)):
-        pred = cv2.imread(pred_path, cv2.IMREAD_GRAYSCALE) 
-        label = cv2.imread(label_paths[i], cv2.IMREAD_GRAYSCALE) 
+    for i, label_path in enumerate(tqdm(label_paths)):
+        label_name = os.path.basename(label_path)
+        pred_path = os.path.join(pred_dir, label_name)
 
+        if os.path.exists(pred_path):
+            pred = torch.from_numpy(cv2.imread(pred_path, cv2.IMREAD_GRAYSCALE)).unsqueeze(0)
+        else: 
+            pred = torch.zeros(IMAGE_SIZE, IMAGE_SIZE).unsqueeze(0)
+
+        label = torch.from_numpy(cv2.imread(label_path, cv2.IMREAD_GRAYSCALE)).unsqueeze(0)
+
+        # Calculate dice score and add to total
         total_dice+=dice_metric(pred, label)
     
-    dice_score = total_dice/len(pred_paths)
+    dice_score = total_dice/len(label_path)
 
     print(f"\nThe dice score is {dice_score}")
 
 if __name__ == "__main__": 
-    PRED_PATH = ""
-    LABEL_PATH = ""
+    PRED_PATH = "reconstructed_val/labels"
+    LABEL_PATH = "stacked_segmentation/labels"
+    SPLIT = "test"
+    IMAGE_SIZE = 192
     
-    evaluate_ensemble(PRED_PATH, LABEL_PATH)
+    evaluate_ensemble(os.path.join(PRED_PATH, SPLIT), os.path.join(LABEL_PATH, SPLIT))

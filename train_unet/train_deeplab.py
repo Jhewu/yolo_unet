@@ -4,6 +4,9 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 from unet import UNet
+from tiny_unet.tiny_unet import TinyUNet
+from torchvision.models.segmentation import deeplabv3_resnet50, DeepLabV3_ResNet50_Weights
+
 from dataset import CustomDataset
 from torch.amp import GradScaler
 
@@ -87,7 +90,49 @@ def train_unet():
                                 batch_size=BATCH_SIZE,
                                 shuffle=True)
 
-    model = UNet(in_channels=4, widths=WIDTHS, num_classes=1).to(device)
+    model = deeplabv3_resnet50(weights=DeepLabV3_ResNet50_Weights.DEFAULT)
+
+    # Grab the original conv1
+    orig_conv1 = model.backbone.conv1
+
+    # Build a new conv that takes 4 channels
+    new_conv1 = torch.nn.Conv2d(
+        in_channels=4,                    # <-- changed
+        out_channels=orig_conv1.out_channels,
+        kernel_size=orig_conv1.kernel_size,
+        stride=orig_conv1.stride,
+        padding=orig_conv1.padding,
+        bias=orig_conv1.bias is not None   # preserve bias flag
+    )
+
+    # --- initialize the new conv ---------------------------------
+    with torch.no_grad():
+        # Copy the pre‑trained weights for the first 3 channels
+        new_conv1.weight[:, :3] = orig_conv1.weight
+
+        # Decide how to initialise the 4th channel
+        # 1) Zero init (most common)
+        new_conv1.weight[:, 3:4] = torch.zeros_like(orig_conv1.weight[:, :1])
+
+    # Swap the conv in the model
+    model.backbone.conv1 = new_conv1
+
+    # Replace the final 1x1 conv to output 1 channel
+    new_classifier = torch.nn.Sequential(
+        # keep everything before the final conv
+        *list(model.classifier.children())[:-1],          # all layers except the last conv
+        torch.nn.Conv2d(
+            in_channels=256,
+            out_channels=1,        # <‑‑ change here
+            kernel_size=1,
+            stride=1,
+            padding=0
+        )
+    )
+
+    # Assign the new head back to the model
+    model.classifier = new_classifier
+
     if LOAD_AND_TRAIN: 
         model.load_state_dict(torch.load(MODEL_PATH, map_location=torch.device(device)))
 
@@ -130,7 +175,7 @@ def train_unet():
                 with torch.amp.autocast(device_type="cuda"): 
                     img = img_mask[0].float().to(device)
                     mask = img_mask[1].float().to(device)
-                    y_pred = model(img)
+                    y_pred = model(img)["out"]
                     loss = dice_loss(y_pred, mask)
                     metric = dice_metric(y_pred, mask)
 
@@ -158,7 +203,7 @@ def train_unet():
                 img = img_mask[0].float().to(device)
                 mask = img_mask[1].float().to(device)
 
-                y_pred = model(img)
+                y_pred = model(img)["out"]
                 optimizer.zero_grad()
 
                 loss = dice_loss(y_pred, mask)
@@ -183,7 +228,7 @@ def train_unet():
                 img = img_mask[0].float().to(device)
                 mask = img_mask[1].float().to(device)
                 
-                y_pred = model(img)
+                y_pred = model(img)["out"]
                 loss = dice_loss(y_pred, mask)
                 val_metric = dice_metric(y_pred, mask)
 
@@ -234,7 +279,7 @@ if __name__ == "__main__":
     MIX_PRECISION = True
     DATA_PATH = "yolo_cropped"
     WIDTHS = [32, 64, 128, 256]
-    BATCH_SIZE = 128
+    BATCH_SIZE = 32
     LEARNING_RATE = 1e-4
     EPOCHS = 100
 
@@ -245,3 +290,4 @@ if __name__ == "__main__":
     PATIENCE = 30
 
     train_unet()
+    

@@ -85,7 +85,7 @@ if __name__ == "__main__":
     DATA_PATH = "yolo_cropped"
     WIDTHS = [32, 64, 128, 256]
     MODEL_PATH = "runs/unet_2025_08_14_20_16_36/weights/best.pth"
-    SPLIT = "val"
-    DEST_DIR = f"reconstructed_{SPLIT}"
+    SPLIT = "test"
+    DEST_DIR = f"reconstructed_{SPLIT}/labels"
     
     reconstruct_masks(SPLIT, DEST_DIR)

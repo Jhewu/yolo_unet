@@ -2,7 +2,9 @@
 !/datasets/data.yaml
 
 /runs/*
-!/runs/object_detection_30_brightness_fliplrup_translateSMALL/
+!/runs/best_current_ssa_model/
+!/runs/gli_final_pretrain/ 
+!/runs/trained_gli_checkpoint/ 
 
 /callbacks/*
 

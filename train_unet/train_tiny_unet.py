@@ -4,6 +4,8 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 from unet import UNet
+from tiny_unet.tiny_unet import TinyUNet
+
 from dataset import CustomDataset
 from torch.amp import GradScaler
 
@@ -87,7 +89,8 @@ def train_unet():
                                 batch_size=BATCH_SIZE,
                                 shuffle=True)
 
-    model = UNet(in_channels=4, widths=WIDTHS, num_classes=1).to(device)
+    model = TinyUNet(in_channels=4, num_classes=1).to(device)
+
     if LOAD_AND_TRAIN: 
         model.load_state_dict(torch.load(MODEL_PATH, map_location=torch.device(device)))
 
