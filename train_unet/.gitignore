@@ -14,6 +14,7 @@ yolo_cropped_marging/
 runs/*
 
 ground_truth_cropped/
+ground_truth_cropped_all/
 ground_truth_cropped_discarded/
 
 reconstructed*/

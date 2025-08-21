@@ -8,7 +8,7 @@ import os
 import cv2
 from PIL import Image
 
-def crop_with_yolo(image, shape, coords, margin_of_error=0):
+def convert_to_xyxy(shape, coords, margin_of_error=0):
     # Parse input as (center_x, center_y, width, height)
     cx, cy, w, h = coords
     row, col, _ = shape  # Assuming shape is (height, width)
@@ -24,6 +24,11 @@ def crop_with_yolo(image, shape, coords, margin_of_error=0):
     final_y1 = int(max(0, y1 - margin_of_error))
     final_x2 = int(min(col, x2 + margin_of_error))
     final_y2 = int(min(row, y2 + margin_of_error))
+
+    return ()
+
+def crop_with_yolo(image, shape, coords, margin_of_error=0):
+
 
     # Return the cropped image
     return image[final_y1:final_y2, final_x1:final_x2]
@@ -143,8 +148,8 @@ def save_image_and_metadata(pil_image, dest_path, x1, y1, x2, y2):
     pil_image.save(dest_path, exif=exif_bytes)
 
 def crop_from_gt(image_path, label_path, coords, image_dest_dir, label_dest_dir): 
-    image = cv2.imread(image_path)
-    label = cv2.imread(label_path)
+    image = cv2.imread(image_path, cv2.IMREAD_UNCHANGED)
+    label = cv2.imread(label_path, cv2.IMREAD_UNCHANGED)
 
     dest_image_path = os.path.join(image_dest_dir, os.path.basename(image_path))
     dest_label_path = os.path.join(label_dest_dir, os.path.basename(label_path))
@@ -155,9 +160,9 @@ def crop_from_gt(image_path, label_path, coords, image_dest_dir, label_dest_dir)
         
         cv2.imwrite(dest_image_path, cropped_image)
         cv2.imwrite(dest_label_path, cropped_label)
-    else: 
-        cv2.imwrite(dest_image_path, image)
-        cv2.imwrite(dest_label_path, label)
+    # else: 
+    #     cv2.imwrite(dest_image_path, image)
+    #     cv2.imwrite(dest_label_path, label)
 
 def GetMaskCoordinates(mask_path):
     """

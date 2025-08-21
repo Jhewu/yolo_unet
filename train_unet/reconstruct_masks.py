@@ -82,9 +82,9 @@ def reconstruct_masks(split, dest_dir):
 
 if __name__ == "__main__": 
     IMAGE_SIZE = 192
-    DATA_PATH = "yolo_cropped"
+    DATA_PATH = "ground_truth_cropped_all"
     WIDTHS = [32, 64, 128, 256]
-    MODEL_PATH = "runs/unet_2025_08_14_20_16_36/weights/best.pth"
+    MODEL_PATH = "/home/jun/Desktop/inspirit/yolo_unet/train_unet/runs/unet_2025_08_20_15_51_45/weights/best.pth"
     SPLIT = "test"
     DEST_DIR = f"reconstructed_{SPLIT}/labels"
     

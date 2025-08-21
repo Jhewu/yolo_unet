@@ -7,20 +7,20 @@ for more information
 
 ## General parameters
 MODE = "train"            # train, val, test, predict 
-MODEL = "yolo11s"
+MODEL = "yolo12m"
 DATASET = "data"
 SEED = 42
 
 ## Training parameters
 PRETRAINED = False
-RESUME = False
-EPOCH = 50
-BATCH = 512
+RESUME = True
+EPOCH = 100
+BATCH = 256
 IMAGE_SIZE = 192
 CLOSE_MOSAIC = 0
 FRACTION = 1.0
-INITIAL_LR = 1e-7
-FINAL_LR = 1e-7
+INITIAL_LR = 1e-5
+FINAL_LR = 1e-5
 WARMUP_EPOCH = 10
 
 COS_LR = True
@@ -30,7 +30,7 @@ SINGLE_CLS = True
 MIX_PRECISION = True
 PLOT = True
 
-FREEZE = 10
+FREEZE = 0 # 10
 
 # Loss Weights
 CLS=0.5 
@@ -55,7 +55,7 @@ MIXUP = 0.0 # 0.5 maybe a good and also bad idea
 CUTMIX = 0.0 # maybe but l
 
 LOAD_AND_TRAIN = True
-BEST_MODEL_DIR_TRAIN = "/home/jun/Desktop/inspirit/yolo_unet/train_yolo/train_yolo11s_2025_08_08_23_48_29/yolo11s_data/weights/best.pt"
+BEST_MODEL_DIR_TRAIN = "/home/jun/Desktop/inspirit/yolo_unet/train_yolo/train_yolo12m_2025_08_21_01_22_51/yolo12m_data/weights/best.pt"
 
 """Validation"""
 BEST_MODEL_DIR_VAL = "yolo11n-seg_all_modality_dataset/weights/best.pt"

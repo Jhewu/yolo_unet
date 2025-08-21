@@ -7,11 +7,75 @@ from unet import UNet
 from dataset import CustomDataset
 from torch.amp import GradScaler
 
+import torchvision
+
 from torchinfo import summary
 import time
 import os
 import pandas as pd
 import matplotlib.pyplot as plt
+
+class TverskyFocalCombinedLoss(torch.nn.Module):
+    def __init__(self, alpha=0.7, beta=0.3, focal_gamma=2.0, tversky_weight=0.5, focal_weight=0.5, smooth=1e-8):
+        super().__init__()
+        self.alpha = alpha
+        self.beta = beta
+
+        self.focal_gamma = focal_gamma
+
+        self.tversky_weight = tversky_weight
+        self.focal_weight = focal_weight
+
+        self.smooth = smooth
+
+    def forward(self, inputs, targets):
+        # Apply sigmoid
+        inputs = torch.sigmoid(inputs)
+        inputs = inputs.view(-1)
+        targets = targets.view(-1)
+
+        # Tversky Loss
+        TP = (inputs * targets).sum()
+        FP = ((1 - targets) * inputs).sum()
+        FN = (targets * (1 - inputs)).sum()
+        tversky = (TP + self.smooth) / (TP + self.alpha * FP + self.beta * FN + self.smooth)
+        tversky_loss = 1 - tversky
+
+        # Focal Loss (from PyTorch)
+        focal_loss = torchvision.ops.sigmoid_focal_loss(inputs, targets, gamma=self.focal_gamma, reduction='mean')
+
+        # Normalize the two losses
+        # tversky_loss_norm = tversky_loss
+        # focal_loss_norm = focal_loss / max(focal_loss.item(), 1.0)
+
+        print(f"\nTversky Loss: {tversky_loss.item()}")
+        print(f"Focal Loss: {focal_loss.item()}\n")
+
+        # Combined
+        loss = self.tversky_weight * tversky_loss + self.focal_weight * focal_loss
+        return loss
+
+# class TverskyLoss(torch.nn.Module):
+#     def __init__(self, weight=None, size_average=True):
+#         super(TverskyLoss, self).__init__()
+
+#     def forward(self, inputs, targets, smooth=1, alpha=0.7, beta=0.3):
+        
+#         #comment out if your model contains a sigmoid or equivalent activation layer
+#         inputs = torch.nn.functional.sigmoid(inputs)       
+        
+#         #flatten label and prediction tensors
+#         inputs = inputs.view(-1)
+#         targets = targets.view(-1)
+        
+#         #True Positives, False Positives & False Negatives
+#         TP = (inputs * targets).sum()    
+#         FP = ((1-targets) * inputs).sum()
+#         FN = (targets * (1-inputs)).sum()
+       
+#         Tversky = (TP + smooth) / (TP + alpha*FP + beta*FN + smooth)  
+        
+#         return 1 - Tversky
 
 def CreateDir(folder_name):
    if not os.path.exists(folder_name):
@@ -45,7 +109,7 @@ def dice_metric(pred, target, smooth=1e-8):
         Scalar Dice Score (higher is better)
     """
     # Apply sigmoid to convert logits to probabilities if needed
-    pred = torch.sigmoid(pred)
+    pred = torch.nn.functional.sigmoid(pred)
     
     # Flatten tensors for easier computation (optional but common)
     pred_flat = pred.view(pred.size(0), -1)  # (batch_size, H*W)
@@ -98,11 +162,8 @@ def train_unet():
 
     if LOAD_AND_TRAIN:
         scheduler = optim.lr_scheduler.ReduceLROnPlateau(
-        optimizer, mode='min', factor=0.3, patience=int(PATIENCE * 0.5), verbose=True
-    )
-
-    # Initiliaze the scheduler
-    scheduler = optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=int(EPOCHS * 0.25))
+        optimizer, mode='min', factor=0.3, patience=int(PATIENCE * 0.5), verbose=True)
+    else: scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=EPOCHS)
 
     # For Mixed-Precision Training
     scaler = GradScaler("cuda")
@@ -118,6 +179,9 @@ def train_unet():
     # Initialize local patience variable for early stopping
     patience = 0
 
+    # Initialize torch loss functions
+    combined_loss = TverskyFocalCombinedLoss()
+
     for epoch in tqdm(range(EPOCHS)):
         model.train()
 
@@ -128,10 +192,25 @@ def train_unet():
         if MIX_PRECISION:
             for idx, img_mask in enumerate(tqdm(train_dataloader)):
                 with torch.amp.autocast(device_type="cuda"): 
+                    # Fetch image and labels
                     img = img_mask[0].float().to(device)
                     mask = img_mask[1].float().to(device)
+
+                    # Forward pass
                     y_pred = model(img)
-                    loss = dice_loss(y_pred, mask)
+                    loss = combined_loss(y_pred, mask)
+
+                    # Calculate the loss
+                    # dice_l = dice_loss(y_pred, mask)
+                    # bce_l = bce_loss(y_pred, mask)
+                    # focal_l = torchvision.ops.sigmoid_focal_loss(y_pred, mask, reduction="mean")
+
+                    a = 0.5
+                    b = 0.5
+
+                    # loss = (dice_l*a)+(focal_l*b)
+
+                    # Calculate the metrics
                     metric = dice_metric(y_pred, mask)
 
                 optimizer.zero_grad()
@@ -203,10 +282,12 @@ def train_unet():
         history["val_dice_metric"].append(val_dice_metric)
 
         if val_loss < best_val_loss: 
-            print(f"Validation loss improved from {best_val_loss:.4f} to {val_loss:.4f}. Saving model...")
-            best_val_loss = val_loss
-            torch.save(model.state_dict(), os.path.join(os.path.join(model_dir, "best.pth")))
-            patience = 0
+            if (best_val_loss - val_loss) > 1e-3:
+                print(f"Validation loss improved from {best_val_loss:.4f} to {val_loss:.4f}. Saving model...")
+                best_val_loss = val_loss
+                torch.save(model.state_dict(), os.path.join(os.path.join(model_dir, "best.pth")))
+                patience = 0
+            else: print(f"Validation loss improved slightly from {best_val_loss:.4f} to {val_loss:.4f}, but not significantly enough to save the model.")
         else:
             if epoch+1 >= EARLY_STOPPING_START: 
                 patience+=1
@@ -232,16 +313,16 @@ def train_unet():
 if __name__ == "__main__":
     IMAGE_SIZE = 128
     MIX_PRECISION = True
-    DATA_PATH = "yolo_cropped"
+    DATA_PATH = "ground_truth_cropped_all"
     WIDTHS = [32, 64, 128, 256]
-    BATCH_SIZE = 128
+    BATCH_SIZE = 32
     LEARNING_RATE = 1e-4
-    EPOCHS = 100
+    EPOCHS = 50
 
     LOAD_AND_TRAIN = False
     MODEL_PATH = "runs/2025_08_11_00_53_48_yolo_cropped/weights/best.pth"
 
-    EARLY_STOPPING_START = 30
-    PATIENCE = 30
+    EARLY_STOPPING_START = 25
+    PATIENCE = 5
 
     train_unet()

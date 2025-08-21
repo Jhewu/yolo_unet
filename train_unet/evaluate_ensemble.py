@@ -57,7 +57,7 @@ def evaluate_ensemble(pred_dir, label_dir):
     print(f"\nThe dice score is {dice_score}")
 
 if __name__ == "__main__": 
-    PRED_PATH = "reconstructed_val/labels"
+    PRED_PATH = "reconstructed_test/labels"
     LABEL_PATH = "stacked_segmentation/labels"
     SPLIT = "test"
     IMAGE_SIZE = 192

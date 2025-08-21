@@ -12,7 +12,7 @@
 ## -------------------------------------------------
 
 ## For UNET Segmentation
-python3 utils/split_dataset.py --in_dir ASNR-MICCAI-BraTS2023-SSA-Challenge-TrainingData_V2 # BraTS2025-GLI-PRE-Challenge-TrainingData
+python3 utils/split_dataset.py --in_dir  BraTS2025-GLI-PRE-Challenge-TrainingData # ASNR-MICCAI-BraTS2023-SSA-Challenge-TrainingData_V2 
 python3 utils/brats_2d_slicer.py
 python3 utils/crop_clean_binarize.py 
 

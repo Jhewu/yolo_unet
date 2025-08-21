@@ -17,3 +17,4 @@ pytest.py
 yolo11_4ch.yaml
 
 .vscode/
+yolo*/

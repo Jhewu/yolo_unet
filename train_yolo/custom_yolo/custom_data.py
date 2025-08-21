@@ -22,8 +22,9 @@ from ultralytics.data.utils import (
 from ultralytics.data.augment import (
     Compose, 
     Format,
-    LetterBox,
-    v8_transforms)
+    LetterBox)
+
+from custom_yolo.custom_v8_transforms import v8_transforms
 
 DATASET_CACHE_VERSION = "1.0.3"
 
