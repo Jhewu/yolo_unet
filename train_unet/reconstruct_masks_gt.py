@@ -34,79 +34,76 @@ def read_metadata(img):
 
     return comment.split(",")
 
-def reconstruct_masks(split, root_dest_dir): 
+def reconstruct_masks(split, dest_dir): 
     device = "cuda" if torch.cuda.is_available() else "cpu"
+    dataset = CustomDataset(DATA_PATH, f"images/{split}", f"labels/{split}", IMAGE_SIZE)
 
-    dataset = CustomDataset(root_path=DATA_PATH, 
-                            image_path=os.path.join("images", split), 
-                            mask_path=os.path.join("labels", split), 
-                            image_size=UNET_IMG_SIZE)
+    image_paths = sorted([DATA_PATH+f"/images/{split}/"+i for i in os.listdir(DATA_PATH+f"/images/{split}/")])
 
     dataloader = DataLoader(dataset=dataset,
-                            batch_size=1,
-                            shuffle=False)
+                                batch_size=1,
+                                shuffle=False)
     
     model = UNet(in_channels=4, widths=WIDTHS, num_classes=1).to(device)
     model.load_state_dict(torch.load(MODEL_PATH, map_location=torch.device(device)))
 
-    dest_dir = os.path.join(root_dest_dir, split)
+    dest_dir = os.path.join(dest_dir, split)
     CreateDir(dest_dir)
-
-    ### Counting Images with Metadata Detected
-    ### ALL OF THEM SHOULD HAVE METADATA
-    total_positive = 0
-    total_negative = 0
 
     with torch.no_grad():
         for idx, img_mask in enumerate(tqdm(dataloader)):
             img = img_mask[0].float().to(device)
-            image_path = dataloader.dataset.images[idx]
 
             # Open and read Exif Metadata
-            pil_img = Image.open(image_path)
+            pil_img = Image.open(image_paths[idx])
             coords = read_metadata(pil_img)
-
             if coords != None:
-                total_positive+=1
-
-                pred_mask = torch.nn.functional.sigmoid(model(img))
+                x1, y1, x2, y2 = coords
+                pred_mask = model(img)
 
                 # Resize the predictions
-                x1, y1, x2, y2 = coords
                 height, width = abs(int(y1)-int(y2)), abs(int(x1)-int(x2))
                 transform = transforms.Resize((height, width))
-                pred_mask = transform(pred_mask).squeeze(0).squeeze(0)
+                pred_mask = transform(pred_mask)
+
+                pred_mask = torch.sigmoid(pred_mask)
 
                 # Insert the predictions to full size empty mask
-                full_size_mask = torch.zeros(OG_IMG_SIZE, OG_IMG_SIZE, device=device)
+                full_size_mask = torch.zeros(IMAGE_SIZE, IMAGE_SIZE,device=device)
                 full_size_mask[int(y1):int(y2), int(x1):int(x2)] = pred_mask
 
                 # Binarize the mask
+                full_size_mask = full_size_mask.squeeze(0).squeeze(0)
                 full_size_mask = (full_size_mask > 0.5).float()
 
                 # Save the full size mask
-                dest_image_dir = os.path.join(dest_dir, os.path.basename(image_path))
+                dest_image_dir = os.path.join(dest_dir, os.path.basename(image_paths[idx]))
                 cv2.imwrite(dest_image_dir, (full_size_mask.cpu().numpy() * 255).astype(np.uint8))
             else:
-                total_negative+=1
+                pred_mask = model(img)
 
-                dest_image_dir = os.path.join(dest_dir, os.path.basename(image_path))
-                full_size_mask = torch.zeros(OG_IMG_SIZE, OG_IMG_SIZE, device=device)
+                # Resize the predictions
+                height, width = (192, 192)
+                transform = transforms.Resize((height, width))
+                pred_mask = transform(pred_mask)
+
+                pred_mask = torch.sigmoid(pred_mask)
+
+                # Binarize the mask
+                full_size_mask = pred_mask.squeeze(0).squeeze(0)
+                full_size_mask = (full_size_mask > 0.5).float()
+
+                # Save the full size mask
+                dest_image_dir = os.path.join(dest_dir, os.path.basename(image_paths[idx]))
                 cv2.imwrite(dest_image_dir, (full_size_mask.cpu().numpy() * 255).astype(np.uint8))
 
-    print("\nTotal images with metadata: ", total_positive)
-    print("Total images without metadata: ", total_negative)
-
-    if total_negative > 1: 
-        print(f"\nWARNING: Metadata not present in {total_negative} images")
-
 if __name__ == "__main__": 
-    OG_IMG_SIZE = 192
-    UNET_IMG_SIZE = 128
-    DATA_PATH = "yolo_cropped_verified"
-    WIDTHS = [32, 64, 128, 256, 512]
-    MODEL_PATH = "runs/unet_2025_08_23_16_57_48/weights/best.pth"
-    SPLIT = "test"
+    IMAGE_SIZE = 192
+    DATA_PATH = "ground_truth_cropped_all"
+    MIN_SIZE_FILTER = 32
+    WIDTHS = [32, 64, 128, 256]
+    MODEL_PATH = "/home/jun/Desktop/inspirit/yolo_unet/train_unet/runs/unet_2025_08_20_15_51_45/weights/best.pth"
+    SPLIT = "train"
     DEST_DIR = f"reconstructed_{SPLIT}/labels"
     
     reconstruct_masks(SPLIT, DEST_DIR)

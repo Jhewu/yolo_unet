@@ -6,21 +6,21 @@ for more information
 """
 
 ## General parameters
-MODE = "train"            # train, val, test, predict 
-MODEL = "yolo12n"
-DATASET = "data"
+MODE = "predict"            # train, val, test, predict 
+MODEL = "yolo12s-cls"
+DATASET = "/home/jun/Desktop/inspirit/yolo_unet/train_yolo/verifier_dataset"
 SEED = 42
 
 ## Training parameters
 PRETRAINED = False
 RESUME = False
-EPOCH = 30
-BATCH = 256
-IMAGE_SIZE = 192
+EPOCH = 50
+BATCH = 16
+IMAGE_SIZE = 128
 CLOSE_MOSAIC = 0
 FRACTION = 1.0
-INITIAL_LR = 1e-7
-FINAL_LR = 1e-7
+INITIAL_LR = 1e-4
+FINAL_LR = 1e-4
 WARMUP_EPOCH = 10
 
 COS_LR = True
@@ -30,7 +30,7 @@ SINGLE_CLS = True
 MIX_PRECISION = True
 PLOT = True
 
-FREEZE = 9
+FREEZE = 0
 
 # Loss Weights
 CLS=0.5 

@@ -6,32 +6,21 @@ import piexif
 import argparse
 import os
 import cv2
+import torch
 from PIL import Image
 
-def convert_to_xyxy(shape, coords, margin_of_error=0):
-    # Parse input as (center_x, center_y, width, height)
-    cx, cy, w, h = coords
-    row, col, _ = shape  # Assuming shape is (height, width)
+def crop_with_yolo(image, shape, coords, margin_of_error):
+    x1, y1, x2, y2 = coords[0], coords[1], coords[2], coords[3]
+    row, col = shape
 
-    # Convert from center-based to top-left and bottom-right coordinates
-    x1 = cx - w / 2
-    x2 = cx + w / 2
-    y1 = cy - h / 2
-    y2 = cy + h / 2
+    # Ensure the new coordinates stay within the image boundaries
+    final_x1 = max(0,   x1 - margin_of_error)
+    final_y1 = max(0,   y1 - margin_of_error)
+    final_x2 = min(col, x2 + margin_of_error)
+    final_y2 = min(row, y2 + margin_of_error)
 
-    # Expand the box by margin_of_error on each side
-    final_x1 = int(max(0, x1 - margin_of_error))
-    final_y1 = int(max(0, y1 - margin_of_error))
-    final_x2 = int(min(col, x2 + margin_of_error))
-    final_y2 = int(min(row, y2 + margin_of_error))
+    return image[final_y1:final_y2, final_x1:final_x2], (final_x1, final_y1, final_x2, final_y2)
 
-    return ()
-
-def crop_with_yolo(image, shape, coords, margin_of_error=0):
-
-
-    # Return the cropped image
-    return image[final_y1:final_y2, final_x1:final_x2]
 def crop_center(image, x_center, y_center, crop_size):
     """
     Crops an image around a center point, padding with zeros if necessary.
@@ -147,22 +136,14 @@ def save_image_and_metadata(pil_image, dest_path, x1, y1, x2, y2):
     # Save the image with the new EXIF data
     pil_image.save(dest_path, exif=exif_bytes)
 
-def crop_from_gt(image_path, label_path, coords, image_dest_dir, label_dest_dir): 
-    image = cv2.imread(image_path, cv2.IMREAD_UNCHANGED)
-    label = cv2.imread(label_path, cv2.IMREAD_UNCHANGED)
-
-    dest_image_path = os.path.join(image_dest_dir, os.path.basename(image_path))
-    dest_label_path = os.path.join(label_dest_dir, os.path.basename(label_path))
-
-    if len(coords) > 1:
-        cropped_image = crop_with_yolo(image, image.shape, coords)
-        cropped_label = crop_with_yolo(label, image.shape, coords)
-        
-        cv2.imwrite(dest_image_path, cropped_image)
-        cv2.imwrite(dest_label_path, cropped_label)
-    # else: 
-    #     cv2.imwrite(dest_image_path, image)
-    #     cv2.imwrite(dest_label_path, label)
+def bbox_iou(box1, box2):
+    x1, y1, x2, y2 = box1  # predicted
+    x3, y3, x4, y4 = box2  # ground truth
+    inter = max(0, min(x2, x4) - max(x1, x3)) * max(0, min(y2, y4) - max(y1, y3))
+    area1 = (x2 - x1) * (y2 - y1)
+    area2 = (x4 - x3) * (y4 - y3)
+    union = area1 + area2 - inter
+    return inter / (union + 1e-6)
 
 def GetMaskCoordinates(mask_path):
     """
@@ -187,10 +168,137 @@ def GetMaskCoordinates(mask_path):
 
     return objects_info
 
-def ground_truth_crop(): 
+def convert_to_xyxy(shape, coords, margin_of_error=0):
+    # Parse input as (center_x, center_y, width, height)
+    cx, cy, w, h = coords
+    row, col, _ = shape  # Assuming shape is (height, width)
+
+    # Convert from center-based to top-left and bottom-right coordinates
+    x1 = cx - w / 2
+    x2 = cx + w / 2
+    y1 = cy - h / 2
+    y2 = cy + h / 2
+
+    # Expand the box by margin_of_error on each side
+    final_x1 = int(max(0, x1 - margin_of_error))
+    final_y1 = int(max(0, y1 - margin_of_error))
+    final_x2 = int(min(col, x2 + margin_of_error))
+    final_y2 = int(min(row, y2 + margin_of_error))
+
+    return (final_x1, final_y1, final_x2, final_y2)
+
+def crop_from_yolo(image_results, label_split_dir, image_dest_dir, label_dest_dir, verifier_dest): 
+
+    global TOTAL_PREDICTIONS
+
+    for result in image_results: 
+        boxes = result.boxes
+
+        if len(boxes) > 0: 
+            all_coords = boxes.xyxy 
+
+            if len(all_coords) > 1: 
+                total_x1, total_x2, total_y1, total_y2, total_conf = 0, 0, 0, 0, 0
+
+                for i, coord in enumerate(all_coords):
+                    x1 = torch.min(all_coords[:, 0])
+                    y1 = torch.min(all_coords[:, 1])
+                    x2 = torch.max(all_coords[:, 2])
+                    y2 = torch.max(all_coords[:, 3])
+                    total_conf += boxes.conf[i]
+                    
+                # Obtain the "centroid" of all_chords
+                # x1 = int(total_x1/len(all_coords))
+                # x2 = int(total_x2/len(all_coords))
+                # y1 = int(total_y1/len(all_coords))       
+                # y2 = int(total_y2/len(all_coords))       
+                total_conf = int(total_conf/len(all_coords))
+  
+            else: 
+                coord = boxes.xyxy[0]
+
+                x1=int(coord[0])
+                y1=int(coord[1])
+                x2=int(coord[2])
+                y2=int(coord[3])
+
+                total_conf = boxes.conf
+
+            orig_img = result.orig_img
+            basename = os.path.basename(result.path)
+            label_path = os.path.join(label_split_dir, basename)
+
+            dest_image_path = os.path.join(image_dest_dir, basename)
+            dest_label_path = os.path.join(label_dest_dir, basename)
+
+            row, col, channel = orig_img.shape
+
+            if total_conf >= 0.85:
+                margin_of_error = 30
+            elif total_conf >= 0.6:  # This will handle values from 0.6 up to, but not including, 0.85
+                margin_of_error = 30
+            # elif total_conf >= 0.4:  # This will handle values from 0.4 up to, but not including, 0.6
+            #     margin_of_error = 50
+            else: continue
+
+            print(f"This is the confidence {total_conf}")
+            
+            cropped_image, final_coords = crop_with_yolo(orig_img, (row, col), (x1, y1, x2, y2), margin_of_error)
+            cropped_label, final_coords = crop_with_yolo(cv2.imread(label_path, cv2.IMREAD_UNCHANGED), (row, col),  (x1, y1, x2, y2), margin_of_error)
+            
+            ### --------------------------------------------------------------------------------------
+            ### LEAVE THIS FOR TROUBLESHOOTING
+
+            # cropped_label = draw_square_opencv(cv2.imread(label_path), center_x, center_y, CROP_SIZE)
+            # result.save(filename=dest_image_path)  # save to disk
+            # cv2.imwrite(dest_label_path, cropped_label)
+
+            ### --------------------------------------------------------------------------------------
+
+            ### For U-Net Training 
+            save_image_and_metadata(Image.fromarray(cropped_image), dest_image_path, final_coords[0], final_coords[1], final_coords[2], final_coords[3])
+            cv2.imwrite(dest_label_path, cropped_label)
+
+            TOTAL_PREDICTIONS+=1
+            # print(f"SAVING: Prediction in... {result.path}")
+
+            if np.sum(cropped_label) > 10:
+                # save_image_and_metadata(Image.fromarray(cropped_image), os.path.join(verifier_dest, "1"), x1, y1, x2, y2)
+                cv2.imwrite(os.path.join(verifier_dest, "1", basename), cropped_image)
+            else: 
+                cv2.imwrite(os.path.join(verifier_dest, "0", basename), cropped_image)
+                # save_image_and_metadata(Image.fromarray(cropped_image), os.path.join(verifier_dest, "0"), x1, y1, x2, y2)
+        else: 
+            # print(f"SKIPPING: No Prediction in... {result.path}")
+            pass
+
+        #     # For Classifier Training
+        #     new_coords = GetMaskCoordinates(label_path)
+        #     if len(new_coords) > 1:
+        #         xyxy = convert_to_xyxy(orig_img.shape, new_coords)
+        #         iou_score = bbox_iou((x1, y1, x2, y2), xyxy)
+
+        #         if iou_score > 0.3:
+        #             # save_image_and_metadata(Image.fromarray(cropped_image), os.path.join(verifier_dest, "1"), x1, y1, x2, y2)
+        #             cv2.imwrite(os.path.join(verifier_dest, "1", basename), cropped_image)
+        #         else: 
+        #             print("IoU Score Too Low, Couuld be False Negative Noise")
+        #             cv2.imwrite(os.path.join(verifier_dest, "0", basename), cropped_image)
+        #             # save_image_and_metadata(Image.fromarray(cropped_image), os.path.join(verifier_dest, "0"), x1, y1, x2, y2)
+        #     else: 
+        #         # save_image_and_metadata(Image.fromarray(cropped_image), os.path.join(verifier_dest, "0"), x1, y1, x2, y2)
+        #         cv2.imwrite(os.path.join(verifier_dest, "0", basename), cropped_image)
+        # else: 
+        #     # print(f"SKIPPING: No Prediction in... {result.path}")
+        #     pass
+
+def yolo_crop_async(): 
+    
     """
     COMMENT: REORGANIZE THIS FUNCTION WITH THREADPOOLEXECUTOR AND ONLY RUN ON CPU MODE
     """
+
+    global TOTAL_PREDICTIONS
     image_dir = os.path.join(IN_DIR, "images")
     label_dir = os.path.join(IN_DIR, "labels")
 
@@ -199,37 +307,45 @@ def ground_truth_crop():
 
     dataset_split = ["test", "train", "val"]
 
+    verifier_dest_dir = "verifier_dataset"
+
     for split in dataset_split:
         image_split_dir = os.path.join(image_dir, split)
         label_split_dir = os.path.join(label_dir, split) 
 
         image_split_dest_dir = os.path.join(image_dest_dir, split)
         label_split_dest_dir = os.path.join(label_dest_dir, split)
+        verifier_split_dest_dir = os.path.join(verifier_dest_dir, split)
+
+        create_dir(os.path.join(verifier_split_dest_dir, "0"))
+        create_dir(os.path.join(verifier_split_dest_dir, "1"))
 
         image_list = os.listdir(image_split_dir)
-        label_list = os.listdir(label_split_dir)
 
         # Ensure image matches label
         image_list.sort()
-        label_list.sort()
 
         # Construct the full directories of images and labels
         image_full_paths = [os.path.join(image_split_dir, image) for image in image_list]
-        label_full_paths = [os.path.join(label_split_dir, label) for label in label_list]
-
         create_dir(image_split_dest_dir), create_dir(label_split_dest_dir)
+
+        args = dict(conf=0.6, save=False, verbose=False, device="cuda")  
+        predictor = CustomDetectionPredictor(overrides=args)
+        predictor.setup_model(MODEL_DIR)
 
         ### ------------------------------------------
         ### LEAVE FOR TROUBLE SHOOTING
-        for i, label_path in enumerate(label_full_paths):
-            coords = GetMaskCoordinates(label_path)
-            crop_from_gt(image_full_paths[i], label_path, coords, image_split_dest_dir, label_split_dest_dir)
+        for image_path in image_full_paths:
+            image_results = predictor(image_path)
+            crop_from_yolo(image_results, label_split_dir, image_split_dest_dir, label_split_dest_dir, verifier_split_dest_dir)
         ### ------------------------------------------
 
         # with ThreadPoolExecutor(max_workers=WORKERS) as executor: 
         #     for image_path in image_full_paths:
         #         image_results = predictor(image_path)
         #         executor.submit(crop_from_yolo, image_results, label_split_dir, image_split_dest_dir, label_split_dest_dir)
+
+    print(f"\nThere were a total of {TOTAL_PREDICTIONS} predictions...")
 
 if __name__ == "__main__": 
     # ---------------------------------------------------
@@ -261,13 +377,15 @@ if __name__ == "__main__":
     else: IN_DIR = "stacked_segmentation"
     if args.out_dir is not None:
         OUT_DIR = args.out_dir
-    else: OUT_DIR = "ground_truth_cropped"
+    else: OUT_DIR = "yolo_cropped"
     if args.model_dir is not None:
         MODEL_DIR = args.model_dir
     else: MODEL_DIR = "yolo_weights/best.pt"
     if args.device is not None:
         DEVICE = args.device
     else: DEVICE = "cuda"
+
+
 
     if args.crop_size is not None:
         CROP_SIZE = args.crop_size
@@ -287,6 +405,6 @@ if __name__ == "__main__":
 
     STACK_PREDICTION = False
     TOTAL_PREDICTIONS = 0
-    MARGIN_OF_ERROR = 10
+    MARGIN_OF_ERROR = 30
 
-    ground_truth_crop()
+    yolo_crop_async()

@@ -19,3 +19,8 @@ t1c_segmentation/
 stacked_segmentation/
 archive/
 .vscode/
+verifier_dataset/
+
+runs/
+
+yolo_cropped*/

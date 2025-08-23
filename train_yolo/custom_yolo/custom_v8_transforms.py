@@ -188,7 +188,7 @@ def v8_transforms(dataset, imgsz: int, hyp: IterableSimpleNamespace, stretch: bo
             pre_transform,
             MixUp(dataset, pre_transform=pre_transform, p=hyp.mixup),
             CutMix(dataset, pre_transform=pre_transform, p=hyp.cutmix),
-            RandomResolution(),
+            # RandomResolution(),
             GaussianNoisePerChannel(), 
             MildGaussianBlur(), 
             RandomBiasField(),
