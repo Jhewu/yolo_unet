@@ -230,13 +230,13 @@ if __name__ == "__main__":
     """FUTURE ME: REORGANIZE THESE"""
     if args.in_dir is not None:
         IN_DIR = args.in_dir
-    else: IN_DIR = "stacked_segmentation"
+    else: IN_DIR = "gli_stacked_segmentation"
     if args.out_dir is not None:
         OUT_DIR = args.out_dir
     else: OUT_DIR = "yolo_cropped"
     if args.model_dir is not None:
         MODEL_DIR = args.model_dir
-    else: MODEL_DIR = "yolo_weights/best.pt"
+    else: MODEL_DIR = "yolo_weights/gli_best.pt"
     if args.device is not None:
         DEVICE = args.device
     else: DEVICE = "cuda"

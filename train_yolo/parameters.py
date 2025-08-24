@@ -14,7 +14,7 @@ SEED = 42
 ## Training parameters
 PRETRAINED = False
 RESUME = False
-EPOCH = 30
+EPOCH = 50
 BATCH = 256
 IMAGE_SIZE = 192
 CLOSE_MOSAIC = 0
@@ -55,7 +55,7 @@ MIXUP = 0.0 # 0.5 maybe a good and also bad idea
 CUTMIX = 0.0 # maybe but l
 
 LOAD_AND_TRAIN = True
-BEST_MODEL_DIR_TRAIN = "/home/jun/Desktop/inspirit/yolo_unet/train_yolo/yolo12n_gli_aug/yolo12n_data/weights/best.pt"
+BEST_MODEL_DIR_TRAIN = "yolo12n_gli_aug/yolo12n_data/weights/best.pt"
 
 """Validation"""
 BEST_MODEL_DIR_VAL = "yolo11n-seg_all_modality_dataset/weights/best.pt"

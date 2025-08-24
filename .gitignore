@@ -24,3 +24,5 @@ verifier_dataset/
 runs/
 
 yolo_cropped*/
+gli_stacked_segmentation/
+ssa_stacked_segmentation/
