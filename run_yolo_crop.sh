@@ -1,1 +1,0 @@
-python3 yolo_crop.py 

@@ -157,7 +157,7 @@ def TrainYOLO():
     # trainer = CustomDetectionTrainer(overrides=args)
     # trainer.train()
 
-    model = YOLO(f"{MODEL}.yaml")
+    model = YOLO(BEST_MODEL_DIR_TRAIN)
     model.train(
                 data="verifier_dataset",
                 epochs=EPOCH, 
@@ -197,7 +197,6 @@ def TrainYOLO():
                 perspective=PERSPECTIVE, 
                 mixup=MIXUP, 
                 cutmix=CUTMIX)
-    
 
     # print(f"\nEnsuring the Model's input layer was changed: {trainer.setup_model()}")
     print(f"\nFinish training, please check your directory for folder named 'train-....")

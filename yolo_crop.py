@@ -1,74 +1,15 @@
-from concurrent.futures import ThreadPoolExecutor
 from custom_predictor.custom_detection_predictor import CustomDetectionPredictor
-from ultralytics import YOLO
 import numpy as np
-import piexif
+import torch
+
+from concurrent.futures import ThreadPoolExecutor
+
 import argparse
 import os
+
+import piexif
 import cv2
-import torch
 from PIL import Image
-
-def crop_with_yolo(image, shape, coords, margin_of_error):
-    x1, y1, x2, y2 = coords[0], coords[1], coords[2], coords[3]
-    row, col = shape
-
-    # Ensure the new coordinates stay within the image boundaries
-    final_x1 = max(0,   x1 - margin_of_error)
-    final_y1 = max(0,   y1 - margin_of_error)
-    final_x2 = min(col, x2 + margin_of_error)
-    final_y2 = min(row, y2 + margin_of_error)
-
-    return image[final_y1:final_y2, final_x1:final_x2], (final_x1, final_y1, final_x2, final_y2)
-
-def crop_center(image, x_center, y_center, crop_size):
-    """
-    Crops an image around a center point, padding with zeros if necessary.
-    
-    Args:
-        image: Input image (numpy array)
-        x_center, y_center: Center coordinates for the crop
-        crop_size: Size of the output crop (assumes square crop)
-    
-    Returns:
-        Cropped image of size (crop_size, crop_size)
-    """
-    height, width = image.shape[0], image.shape[1]
-    half_crop = crop_size // 2
-    
-    # Calculate desired crop boundaries
-    x1 = x_center - half_crop
-    y1 = y_center - half_crop
-    x2 = x1 + crop_size  # Ensure exact crop_size
-    y2 = y1 + crop_size
-    
-    # Calculate actual crop boundaries (clipped to image)
-    x1_clip = max(0, x1)
-    y1_clip = max(0, y1)
-    x2_clip = min(width, x2)
-    y2_clip = min(height, y2)
-    
-    # Extract the portion of image within bounds
-    cropped = image[y1_clip:y2_clip, x1_clip:x2_clip]
-    
-    # Calculate padding needed
-    pad_left = x1_clip - x1
-    pad_top = y1_clip - y1  
-    pad_right = x2 - x2_clip
-    pad_bottom = y2 - y2_clip
-    
-    # Apply padding if necessary
-    if pad_left > 0 or pad_top > 0 or pad_right > 0 or pad_bottom > 0:
-        if len(image.shape) == 3:  # Color image
-            cropped = np.pad(cropped, 
-                           ((pad_top, pad_bottom), (pad_left, pad_right), (0, 0)), 
-                           mode='constant', constant_values=0)
-        else:  # Grayscale image
-            cropped = np.pad(cropped, 
-                           ((pad_top, pad_bottom), (pad_left, pad_right)), 
-                           mode='constant', constant_values=0)
-    
-    return cropped
 
 def draw_square_opencv(image, x_center, y_center, square_size, thickness=1, color=255):
     ### --------------------------------------------------------------------------------------
@@ -94,31 +35,25 @@ def draw_square_opencv(image, x_center, y_center, square_size, thickness=1, colo
     cv2.rectangle(result_image, pt1, pt2, draw_color, cv_thickness)
     return result_image
 
+def crop_with_yolo(image, shape, coords, margin_of_error):
+    ### Crops with YOLO coordinates xyxy
+    x1, y1, x2, y2 = coords[0], coords[1], coords[2], coords[3]
+    row, col = shape
+
+    # Ensure the new coordinates stay within the image boundaries
+    final_x1 = max(0,   x1 - margin_of_error)
+    final_y1 = max(0,   y1 - margin_of_error)
+    final_x2 = min(col, x2 + margin_of_error)
+    final_y2 = min(row, y2 + margin_of_error)
+
+    return image[int(final_y1):int(final_y2), int(final_x1):int(final_x2)], (int(final_x1), int(final_y1), int(final_x2), int(final_y2))
+
 def create_dir(path):
     if not os.path.exists(path):
         os.makedirs(path)
 
-def plot_yolo_box(image, center_x, center_y, width, height, color_val=255):
-    img_h, img_w = image.shape[:2]
-
-    # Calculate top-left and bottom-right corner coordinates
-    x1 = int(center_x - width / 2)
-    y1 = int(center_y - height / 2)
-    x2 = int(center_x + width / 2)
-    y2 = int(center_y + height / 2)
-
-    # Ensure coordinates are within image boundaries
-    x1 = max(0, x1)
-    y1 = max(0, y1)
-    x2 = min(img_w, x2)
-    y2 = min(img_h, y2)
-
-    # Modify pixels within the square to the specified color_val
-    image[y1:y2, x1:x2] = color_val
-
-    return image
-
 def save_image_and_metadata(pil_image, dest_path, x1, y1, x2, y2): 
+    ### Save YOLO bounding box into custom metadata tag for future use
     exif = pil_image.getexif()
     exif_bytes = exif.tobytes()
     exif_dict = piexif.load(exif_bytes)
@@ -136,84 +71,30 @@ def save_image_and_metadata(pil_image, dest_path, x1, y1, x2, y2):
     # Save the image with the new EXIF data
     pil_image.save(dest_path, exif=exif_bytes)
 
-def bbox_iou(box1, box2):
-    x1, y1, x2, y2 = box1  # predicted
-    x3, y3, x4, y4 = box2  # ground truth
-    inter = max(0, min(x2, x4) - max(x1, x3)) * max(0, min(y2, y4) - max(y1, y3))
-    area1 = (x2 - x1) * (y2 - y1)
-    area2 = (x4 - x3) * (y4 - y3)
-    union = area1 + area2 - inter
-    return inter / (union + 1e-6)
-
-def GetMaskCoordinates(mask_path):
-    """
-    The code below is borrowed from Farah Alarbid
-    Credits here: https://www.kaggle.com/code/farahalarbeed/convert-binary-masks-to-yolo-format
-    """
-    mask = cv2.imread(mask_path, cv2.IMREAD_GRAYSCALE)
-
-    # image processing
-    _, binary_mask = cv2.threshold(mask, 128, 255, cv2.THRESH_BINARY)
-    contours, _ = cv2.findContours(binary_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    objects_info = []
-
-    max_area = 0
-    for contour in contours:
-        x, y, width, height = cv2.boundingRect(contour)
-        if max_area < (width*height):
-            max_area = (width*height)
-            x_center = (x + width / 2) 
-            y_center = (y + height / 2)
-            objects_info = (x_center, y_center, width, height)
-
-    return objects_info
-
-def convert_to_xyxy(shape, coords, margin_of_error=0):
-    # Parse input as (center_x, center_y, width, height)
-    cx, cy, w, h = coords
-    row, col, _ = shape  # Assuming shape is (height, width)
-
-    # Convert from center-based to top-left and bottom-right coordinates
-    x1 = cx - w / 2
-    x2 = cx + w / 2
-    y1 = cy - h / 2
-    y2 = cy + h / 2
-
-    # Expand the box by margin_of_error on each side
-    final_x1 = int(max(0, x1 - margin_of_error))
-    final_y1 = int(max(0, y1 - margin_of_error))
-    final_x2 = int(min(col, x2 + margin_of_error))
-    final_y2 = int(min(row, y2 + margin_of_error))
-
-    return (final_x1, final_y1, final_x2, final_y2)
-
 def crop_from_yolo(image_results, label_split_dir, image_dest_dir, label_dest_dir, verifier_dest): 
+    ### Crop image using bounding boxes and create yolo_cropped/ and verifier_dataset/ datasets
 
     global TOTAL_PREDICTIONS
 
     for result in image_results: 
         boxes = result.boxes
 
+        ### If there's a prediction... 
         if len(boxes) > 0: 
             all_coords = boxes.xyxy 
 
+            ### If there are multiple boxes
             if len(all_coords) > 1: 
-                total_x1, total_x2, total_y1, total_y2, total_conf = 0, 0, 0, 0, 0
 
-                for i, coord in enumerate(all_coords):
-                    x1 = torch.min(all_coords[:, 0])
-                    y1 = torch.min(all_coords[:, 1])
-                    x2 = torch.max(all_coords[:, 2])
-                    y2 = torch.max(all_coords[:, 3])
-                    total_conf += boxes.conf[i]
-                    
-                # Obtain the "centroid" of all_chords
-                # x1 = int(total_x1/len(all_coords))
-                # x2 = int(total_x2/len(all_coords))
-                # y1 = int(total_y1/len(all_coords))       
-                # y2 = int(total_y2/len(all_coords))       
-                total_conf = int(total_conf/len(all_coords))
-  
+                x1 = torch.min(all_coords[:, 0]).item()
+                y1 = torch.min(all_coords[:, 1]).item()
+                x2 = torch.max(all_coords[:, 2]).item()
+                y2 = torch.max(all_coords[:, 3]).item()
+
+                ### MIGHT NEED THIS IN THE FUTURE
+                # total_conf = np.sum(boxes.conf[:])/len(boxes.conf)
+
+            ### If there's a single box
             else: 
                 coord = boxes.xyxy[0]
 
@@ -222,29 +103,20 @@ def crop_from_yolo(image_results, label_split_dir, image_dest_dir, label_dest_di
                 x2=int(coord[2])
                 y2=int(coord[3])
 
-                total_conf = boxes.conf
+                ### MIGHT NEED THIS IN THE FUTURE
+                # total_conf = boxes.conf
 
-            orig_img = result.orig_img
             basename = os.path.basename(result.path)
             label_path = os.path.join(label_split_dir, basename)
 
             dest_image_path = os.path.join(image_dest_dir, basename)
             dest_label_path = os.path.join(label_dest_dir, basename)
 
-            row, col, channel = orig_img.shape
-
-            if total_conf >= 0.85:
-                margin_of_error = 30
-            elif total_conf >= 0.6:  # This will handle values from 0.6 up to, but not including, 0.85
-                margin_of_error = 30
-            # elif total_conf >= 0.4:  # This will handle values from 0.4 up to, but not including, 0.6
-            #     margin_of_error = 50
-            else: continue
-
-            print(f"This is the confidence {total_conf}")
+            orig_img = result.orig_img
+            row, col, _ = orig_img.shape
             
-            cropped_image, final_coords = crop_with_yolo(orig_img, (row, col), (x1, y1, x2, y2), margin_of_error)
-            cropped_label, final_coords = crop_with_yolo(cv2.imread(label_path, cv2.IMREAD_UNCHANGED), (row, col),  (x1, y1, x2, y2), margin_of_error)
+            cropped_image, final_coords = crop_with_yolo(orig_img, (row, col), (x1, y1, x2, y2), MARGIN_OF_ERROR)
+            cropped_label, final_coords = crop_with_yolo(cv2.imread(label_path, cv2.IMREAD_UNCHANGED), (row, col),  (x1, y1, x2, y2), MARGIN_OF_ERROR)
             
             ### --------------------------------------------------------------------------------------
             ### LEAVE THIS FOR TROUBLESHOOTING
@@ -255,49 +127,28 @@ def crop_from_yolo(image_results, label_split_dir, image_dest_dir, label_dest_di
 
             ### --------------------------------------------------------------------------------------
 
-            ### For U-Net Training 
+            ### For U-Net Training (yolo_cropped dataset)
             save_image_and_metadata(Image.fromarray(cropped_image), dest_image_path, final_coords[0], final_coords[1], final_coords[2], final_coords[3])
             cv2.imwrite(dest_label_path, cropped_label)
-
-            TOTAL_PREDICTIONS+=1
-            # print(f"SAVING: Prediction in... {result.path}")
-
+            
+            ### If there's at least 10 pixels in the cropped label, then this is a True Positive Else is False Positive
             if np.sum(cropped_label) > 10:
-                # save_image_and_metadata(Image.fromarray(cropped_image), os.path.join(verifier_dest, "1"), x1, y1, x2, y2)
                 cv2.imwrite(os.path.join(verifier_dest, "1", basename), cropped_image)
             else: 
                 cv2.imwrite(os.path.join(verifier_dest, "0", basename), cropped_image)
-                # save_image_and_metadata(Image.fromarray(cropped_image), os.path.join(verifier_dest, "0"), x1, y1, x2, y2)
+            
+            TOTAL_PREDICTIONS+=1
+            print(f"SAVING: Prediction in... {result.path}")
+
+        ### No prediction...
         else: 
-            # print(f"SKIPPING: No Prediction in... {result.path}")
+            print(f"SKIPPING: No Prediction in... {result.path}")
             pass
-
-        #     # For Classifier Training
-        #     new_coords = GetMaskCoordinates(label_path)
-        #     if len(new_coords) > 1:
-        #         xyxy = convert_to_xyxy(orig_img.shape, new_coords)
-        #         iou_score = bbox_iou((x1, y1, x2, y2), xyxy)
-
-        #         if iou_score > 0.3:
-        #             # save_image_and_metadata(Image.fromarray(cropped_image), os.path.join(verifier_dest, "1"), x1, y1, x2, y2)
-        #             cv2.imwrite(os.path.join(verifier_dest, "1", basename), cropped_image)
-        #         else: 
-        #             print("IoU Score Too Low, Couuld be False Negative Noise")
-        #             cv2.imwrite(os.path.join(verifier_dest, "0", basename), cropped_image)
-        #             # save_image_and_metadata(Image.fromarray(cropped_image), os.path.join(verifier_dest, "0"), x1, y1, x2, y2)
-        #     else: 
-        #         # save_image_and_metadata(Image.fromarray(cropped_image), os.path.join(verifier_dest, "0"), x1, y1, x2, y2)
-        #         cv2.imwrite(os.path.join(verifier_dest, "0", basename), cropped_image)
-        # else: 
-        #     # print(f"SKIPPING: No Prediction in... {result.path}")
-        #     pass
-
-def yolo_crop_async(): 
     
+def yolo_crop_async(): 
     """
-    COMMENT: REORGANIZE THIS FUNCTION WITH THREADPOOLEXECUTOR AND ONLY RUN ON CPU MODE
+    FUTURE ME: REORGANIZE THIS FUNCTION WITH THREADPOOLEXECUTOR, AND IMPROVE READABILITY
     """
-
     global TOTAL_PREDICTIONS
     image_dir = os.path.join(IN_DIR, "images")
     label_dir = os.path.join(IN_DIR, "labels")
@@ -305,31 +156,28 @@ def yolo_crop_async():
     image_dest_dir = os.path.join(OUT_DIR, "images")
     label_dest_dir = os.path.join(OUT_DIR, "labels")
 
-    dataset_split = ["test", "train", "val"]
-
     verifier_dest_dir = "verifier_dataset"
 
-    for split in dataset_split:
-        image_split_dir = os.path.join(image_dir, split)
-        label_split_dir = os.path.join(label_dir, split) 
+    for split in ["test", "train", "val"]:
+        image_split = os.path.join(image_dir, split)
+        label_split = os.path.join(label_dir, split) 
 
-        image_split_dest_dir = os.path.join(image_dest_dir, split)
-        label_split_dest_dir = os.path.join(label_dest_dir, split)
-        verifier_split_dest_dir = os.path.join(verifier_dest_dir, split)
+        image_dest_split = os.path.join(image_dest_dir, split)
+        label_dest_split = os.path.join(label_dest_dir, split)
+        verifier_dest_split = os.path.join(verifier_dest_dir, split)
 
-        create_dir(os.path.join(verifier_split_dest_dir, "0"))
-        create_dir(os.path.join(verifier_split_dest_dir, "1"))
+        # Construct Destination Directories
+        create_dir(image_dest_split), create_dir(label_dest_split)
+        create_dir(os.path.join(verifier_dest_split, "0"))
+        create_dir(os.path.join(verifier_dest_split, "1"))
 
-        image_list = os.listdir(image_split_dir)
-
-        # Ensure image matches label
+        image_list = os.listdir(image_split)
         image_list.sort()
 
         # Construct the full directories of images and labels
-        image_full_paths = [os.path.join(image_split_dir, image) for image in image_list]
-        create_dir(image_split_dest_dir), create_dir(label_split_dest_dir)
+        image_full_paths = [os.path.join(image_split, image) for image in image_list]
 
-        args = dict(conf=0.6, save=False, verbose=False, device="cuda")  
+        args = dict(conf=CONFIDENCE, save=False, verbose=False, device="cuda")  
         predictor = CustomDetectionPredictor(overrides=args)
         predictor.setup_model(MODEL_DIR)
 
@@ -337,13 +185,18 @@ def yolo_crop_async():
         ### LEAVE FOR TROUBLE SHOOTING
         for image_path in image_full_paths:
             image_results = predictor(image_path)
-            crop_from_yolo(image_results, label_split_dir, image_split_dest_dir, label_split_dest_dir, verifier_split_dest_dir)
+            crop_from_yolo(image_results, label_split, image_dest_split, label_dest_split, verifier_dest_split)
         ### ------------------------------------------
 
-        # with ThreadPoolExecutor(max_workers=WORKERS) as executor: 
-        #     for image_path in image_full_paths:
-        #         image_results = predictor(image_path)
-        #         executor.submit(crop_from_yolo, image_results, label_split_dir, image_split_dest_dir, label_split_dest_dir)
+        ### --------------------------------------------------
+        ### CURRENTLY SOME ISSUES WITH THREADPOOL, DO NOT USE
+        # batches = [image_full_paths[i:i + 32] for i in range(0, len(image_full_paths), 32)]
+        # for batch_paths in batches:
+        #     batch_results = predictor(batch_paths)
+        #     with ThreadPoolExecutor(max_workers=WORKERS) as executor: 
+        #         for result in batch_results:
+        #             executor.submit(crop_from_yolo, result, label_dir, image_dest_dir, label_dest_dir, verifier_dest_dir)
+        ### --------------------------------------------------
 
     print(f"\nThere were a total of {TOTAL_PREDICTIONS} predictions...")
 
@@ -351,8 +204,12 @@ if __name__ == "__main__":
     # ---------------------------------------------------
     des="""
     Performs YOLO cropping on a preprocessed BraTS 2D
-    dataset, to prepare them for U-NET like segmentation
-    training 
+    dataset, to prepare them segmentation training
+
+    Creates two directories: (1) yolo_cropped, containing
+    all of the YOLO cropped images, (2) verifier_dataset
+    containing the dataset to train the verifier net
+    to further filter YOLO false positive detections
     """
     # ---------------------------------------------------
 
@@ -363,15 +220,14 @@ if __name__ == "__main__":
     parser.add_argument("--device", type=str,help='cpu or cuda\t[cuda]')
 
     parser.add_argument('--confidence', type=int, help='confidence for binarizing the image\t[15]')
-    parser.add_argument('--crop_size', type=int, help='final NxN image crop\t[64]')
+    parser.add_argument('--margin_of_error', type=int, help='amount of pixels to pad the crops (all sides) as a margin of error\t[30]')
     parser.add_argument('--workers', type=int, help='number of threads/workers to use\t[10]')
-    parser.add_argument('--batch_size', type=int, help='batch size used to process YOLO, depending on your GPU capabilities\t[64]')
 
     parser.add_argument('--filter', action='store_true', help='Enable YOLO Gating, discard images under the confidence score')
 
     args = parser.parse_args()
 
-    """REORGANIZE THESE IN THE FUTURE"""
+    """FUTURE ME: REORGANIZE THESE"""
     if args.in_dir is not None:
         IN_DIR = args.in_dir
     else: IN_DIR = "stacked_segmentation"
@@ -384,27 +240,19 @@ if __name__ == "__main__":
     if args.device is not None:
         DEVICE = args.device
     else: DEVICE = "cuda"
-
-
-
-    if args.crop_size is not None:
-        CROP_SIZE = args.crop_size
-    else: CROP_SIZE = 128
-    if args.batch_size is not None:
-        BATCH_SIZE = args.batch_size
-    else: BATCH_SIZE = 256
     if args.confidence is not None:
         CONFIDENCE = args.confidence
-    else: CONFIDENCE = 0.8
+    else: CONFIDENCE = 0.4
     if args.workers is not None:
         WORKERS = args.workers
     else: WORKERS = 10
     if args.filter is not None:
         FILTER = args.filter
     else: FILTER = False
+    if args.margin_of_error is not None:
+        MARGIN_OF_ERROR = args.margin_of_error
+    else: MARGIN_OF_ERROR = 30
 
-    STACK_PREDICTION = False
     TOTAL_PREDICTIONS = 0
-    MARGIN_OF_ERROR = 30
 
     yolo_crop_async()

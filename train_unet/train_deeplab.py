@@ -448,7 +448,7 @@ def train_unet():
 if __name__ == "__main__":
     IMAGE_SIZE = 128
     MIX_PRECISION = True
-    DATA_PATH = "yolo_cropped"
+    DATA_PATH = "yolo_cropped_verified"
     WIDTHS = [32, 64, 128, 256]
     BATCH_SIZE = 256
     LEARNING_RATE = 1e-4

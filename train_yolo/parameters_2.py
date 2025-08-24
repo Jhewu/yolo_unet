@@ -6,22 +6,22 @@ for more information
 """
 
 ## General parameters
-MODE = "predict"            # train, val, test, predict 
-MODEL = "yolo12s-cls"
+MODE = "train"            # train, val, test, predict 
+MODEL = "yolo12x-cls"
 DATASET = "/home/jun/Desktop/inspirit/yolo_unet/train_yolo/verifier_dataset"
 SEED = 42
 
 ## Training parameters
 PRETRAINED = False
 RESUME = False
-EPOCH = 50
-BATCH = 16
+EPOCH = 100
+BATCH = 128
 IMAGE_SIZE = 128
 CLOSE_MOSAIC = 0
 FRACTION = 1.0
-INITIAL_LR = 1e-4
-FINAL_LR = 1e-4
-WARMUP_EPOCH = 10
+INITIAL_LR = 1e-5
+FINAL_LR = 1e-5
+WARMUP_EPOCH = 5
 
 COS_LR = True
 PROFILE = False
@@ -54,8 +54,8 @@ PERSPECTIVE = 0.001 # 0.010 use it carefully
 MIXUP = 0.0 # 0.5 maybe a good and also bad idea
 CUTMIX = 0.0 # maybe but l
 
-LOAD_AND_TRAIN = True
-BEST_MODEL_DIR_TRAIN = "/home/jun/Desktop/inspirit/yolo_unet/train_yolo/yolo12n_gli_aug/yolo12n_data/weights/best.pt"
+LOAD_AND_TRAIN = False
+BEST_MODEL_DIR_TRAIN = "/home/jun/Desktop/inspirit/yolo_unet/train_yolo/train_yolo12s-cls_2025_08_23_19_11_31/yolo12s-cls_/home/jun/Desktop/inspirit/yolo_unet/train_yolo/verifier_dataset/weights/last.pt"
 
 """Validation"""
 BEST_MODEL_DIR_VAL = "yolo11n-seg_all_modality_dataset/weights/best.pt"

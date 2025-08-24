@@ -105,8 +105,8 @@ if __name__ == "__main__":
     UNET_IMG_SIZE = 128
     DATA_PATH = "yolo_cropped_verified"
     WIDTHS = [32, 64, 128, 256, 512]
-    MODEL_PATH = "runs/unet_2025_08_23_16_57_48/weights/best.pth"
-    SPLIT = "test"
+    MODEL_PATH = "/home/jun/Desktop/inspirit/yolo_unet/train_unet/runs/unet_2025_08_23_20_26_07/weights/best.pth"
+    SPLIT = "train"
     DEST_DIR = f"reconstructed_{SPLIT}/labels"
     
     reconstruct_masks(SPLIT, DEST_DIR)

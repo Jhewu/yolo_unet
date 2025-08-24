@@ -5,6 +5,24 @@ from custom_yolo.custom_build_data import build_yolo_dataset
 from ultralytics.utils import RANK
 from typing import Optional
 
+from ultralytics.data import ClassificationDataset
+from ultralytics.models.yolo.classify import ClassificationTrainer
+
+class CustomClassificationTrainer(ClassificationTrainer): 
+    def build_dataset(self, img_path: str, mode: str = "train", batch=None):
+        """
+        Create a ClassificationDataset instance given an image path and mode.
+
+        Args:
+            img_path (str): Path to the dataset images.
+            mode (str, optional): Dataset mode ('train', 'val', or 'test').
+            batch (Any, optional): Batch information (unused in this implementation).
+
+        Returns:
+            (ClassificationDataset): Dataset for the specified mode.
+        """
+        return ClassificationDataset(root=img_path, args=self.args, augment=mode == "train", prefix=mode)
+
 class CustomDetectionTrainer(DetectionTrainer):
     """ORIGINALLY INHERITS FROM THE DetectionTrainer, WHICH ORIGINALLY INHERITS FROM THE BaseTrainer"""
     def build_dataset(self, img_path: str, mode: str = "train", batch: Optional[int] = None):
