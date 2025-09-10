@@ -76,80 +76,78 @@ def crop_from_yolo(image_results, image_path, label_split_dir, image_dest_dir, l
 
     global TOTAL_PREDICTIONS
 
-    # for result in image_results: 
-    #     boxes = result.boxes
+    for result in image_results: 
+        boxes = result.boxes
 
-    boxes = image_results.boxes
+        ### If there's a prediction... 
+        if len(boxes) > 0: 
+            all_coords = boxes.xyxy 
 
-    ### If there's a prediction... 
-    if len(boxes) > 0: 
-        all_coords = boxes.xyxy 
+            ### If there are multiple boxes
+            if len(all_coords) > 1: 
 
-        ### If there are multiple boxes
-        if len(all_coords) > 1: 
+                x1 = torch.min(all_coords[:, 0]).item()
+                y1 = torch.min(all_coords[:, 1]).item()
+                x2 = torch.max(all_coords[:, 2]).item()
+                y2 = torch.max(all_coords[:, 3]).item()
 
-            x1 = torch.min(all_coords[:, 0]).item()
-            y1 = torch.min(all_coords[:, 1]).item()
-            x2 = torch.max(all_coords[:, 2]).item()
-            y2 = torch.max(all_coords[:, 3]).item()
+                ### MIGHT NEED THIS IN THE FUTURE
+                # total_conf = np.sum(boxes.conf[:])/len(boxes.conf)
 
-            ### MIGHT NEED THIS IN THE FUTURE
-            # total_conf = np.sum(boxes.conf[:])/len(boxes.conf)
+            ### If there's a single box
+            else: 
+                coord = boxes.xyxy[0]
 
-        ### If there's a single box
-        else: 
-            coord = boxes.xyxy[0]
+                x1=int(coord[0])
+                y1=int(coord[1])
+                x2=int(coord[2])
+                y2=int(coord[3])
 
-            x1=int(coord[0])
-            y1=int(coord[1])
-            x2=int(coord[2])
-            y2=int(coord[3])
+                ### MIGHT NEED THIS IN THE FUTURE
+                # total_conf = boxes.conf
 
-            ### MIGHT NEED THIS IN THE FUTURE
-            # total_conf = boxes.conf
+            basename = os.path.basename(image_path)
+            label_path = os.path.join(label_split_dir, basename)
 
-        basename = os.path.basename(image_path)
-        label_path = os.path.join(label_split_dir, basename)
+            dest_image_path = os.path.join(image_dest_dir, basename)
+            dest_label_path = os.path.join(label_dest_dir, basename)
 
-        dest_image_path = os.path.join(image_dest_dir, basename)
-        dest_label_path = os.path.join(label_dest_dir, basename)
-
-        orig_img = image_results.orig_img
-        row, col, _ = orig_img.shape
-        
-        cropped_image, final_coords = crop_with_yolo(orig_img, (row, col), (x1, y1, x2, y2), MARGIN_OF_ERROR)
-        cropped_label, final_coords = crop_with_yolo(
-            cv2.resize(cv2.imread(label_path, cv2.IMREAD_UNCHANGED), (row, col), interpolation=cv2.INTER_AREA),
-            (row, col),  (x1, y1, x2, y2), MARGIN_OF_ERROR)
-        
-        ### --------------------------------------------------------------------------------------
-        ### LEAVE THIS FOR TROUBLESHOOTING
-
-        # cropped_label = draw_square_opencv(cv2.imread(label_path), center_x, center_y, CROP_SIZE)
-        # result.save(filename=dest_image_path)  # save to disk
-        # cv2.imwrite(dest_label_path, cropped_label)
-
-        ### --------------------------------------------------------------------------------------
-
-        ### For U-Net Training (yolo_cropped dataset)
-        save_image_and_metadata(Image.fromarray(cropped_image), dest_image_path, final_coords[0], final_coords[1], final_coords[2], final_coords[3])
-        cv2.imwrite(dest_label_path, cropped_label)
-        
-        ### If there's at least 10 pixels in the cropped label, then this is a True Positive Else is False Positive
-        if np.sum(cropped_label) > 10:
-            cv2.imwrite(os.path.join(verifier_dest, "1", basename), cropped_image)
-            # pass
-        else: 
-            cv2.imwrite(os.path.join(verifier_dest, "0", basename), cropped_image)
-            # pass
+            orig_img = cv2.resize(result.orig_img, (IMAGE_SIZE, IMAGE_SIZE), interpolation=cv2.INTER_AREA)
+            row, col, _ = orig_img.shape
             
-        TOTAL_PREDICTIONS+=1
-        print(f"SAVING: Prediction in... {image_path}")
+            cropped_image, final_coords = crop_with_yolo(orig_img, (row, col), (x1, y1, x2, y2), MARGIN_OF_ERROR)
+            cropped_label, final_coords = crop_with_yolo(
+                cv2.resize(cv2.imread(label_path, cv2.IMREAD_UNCHANGED), (row, col), interpolation=cv2.INTER_AREA),
+                (row, col),  (x1, y1, x2, y2), MARGIN_OF_ERROR)
+            
+            ### --------------------------------------------------------------------------------------
+            ### LEAVE THIS FOR TROUBLESHOOTING
+
+            # cropped_label = draw_square_opencv(cv2.imread(label_path), center_x, center_y, CROP_SIZE)
+            # result.save(filename=dest_image_path)  # save to disk
+            # cv2.imwrite(dest_label_path, cropped_label)
+
+            ### --------------------------------------------------------------------------------------
+
+            ### For U-Net Training (yolo_cropped dataset)
+            save_image_and_metadata(Image.fromarray(cropped_image), dest_image_path, final_coords[0], final_coords[1], final_coords[2], final_coords[3])
+            cv2.imwrite(dest_label_path, cropped_label)
+            
+            ### If there's at least 10 pixels in the cropped label, then this is a True Positive Else is False Positive
+            if np.sum(cropped_label) > 10:
+                cv2.imwrite(os.path.join(verifier_dest, "1", basename), cropped_image)
+                # pass
+            else: 
+                cv2.imwrite(os.path.join(verifier_dest, "0", basename), cropped_image)
+                # pass
+            
+            TOTAL_PREDICTIONS+=1
+            print(f"SAVING: Prediction in... {image_path}")
 
         ### No prediction...
-        # else: 
-        #     print(f"SKIPPING: No Prediction in... {image_path}")
-        #     pass
+        else: 
+            print(f"SKIPPING: No Prediction in... {image_path}")
+            pass
     
 def yolo_crop_async(): 
     """
@@ -181,7 +179,7 @@ def yolo_crop_async():
         # Construct the full directories of images and labels
         image_full_paths = [os.path.join(image_split, image) for image in image_list]
 
-        args = dict(conf=CONFIDENCE, save=False, verbose=False, device="cuda", imgsz=IMAGE_SIZE, batch=BATCH_SIZE)  
+        args = dict(conf=CONFIDENCE, save=False, verbose=True, device="cuda", imgsz=IMAGE_SIZE, batch=BATCH_SIZE)  
         predictor = CustomDetectionPredictor(overrides=args)
         predictor.setup_model(MODEL_DIR)
 
@@ -194,6 +192,9 @@ def yolo_crop_async():
         # batches = [image_full_paths[i:i + BATCH_SIZE] for i in range(0, len(image_full_paths), BATCH_SIZE)]
         # for batch_paths in batches:
         #     batch_results = predictor(batch_paths)
+        #     crop_from_yolo(batch_results, batch_paths, label_split, image_dest_split, label_dest_split, verifier_dest_split)
+
+
         #     for idx, result in enumerate(batch_results):
         #         image_path = batch_paths[idx]
         #         crop_from_yolo(result, image_path, label_split, image_dest_split, label_dest_split, verifier_dest_split)
@@ -241,13 +242,13 @@ if __name__ == "__main__":
     """FUTURE ME: REORGANIZE THESE"""
     if args.in_dir is not None:
         IN_DIR = args.in_dir
-    else: IN_DIR = "ssa_stacked_segmentation"
+    else: IN_DIR = "gli_stacked_segmentation"
     if args.out_dir is not None:
         OUT_DIR = args.out_dir
-    else: OUT_DIR = "ssa_yolo_cropped_n"
+    else: OUT_DIR = "gli_yolo_cropped_n"
     if args.model_dir is not None:
         MODEL_DIR = args.model_dir
-    else: MODEL_DIR = "yolo_weights/ssa_best_n.pt"
+    else: MODEL_DIR = "yolo_weights/gli_best_n.pt"
     if args.device is not None:
         DEVICE = args.device
     else: DEVICE = "cuda"
@@ -267,6 +268,6 @@ if __name__ == "__main__":
     TOTAL_PREDICTIONS = 0
     BATCH_SIZE = 48
     IMAGE_SIZE = 160
-    VERIFIER_DEST = "ssa_verifier_dataset_n"
+    VERIFIER_DEST = "gli_verifier_dataset_n"
 
     yolo_crop_async()

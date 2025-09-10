@@ -55,10 +55,16 @@ def evaluate_ensemble(pred_dir, label_dir):
         else:
             # Create empty mask if prediction doesn't exist
             # Assuming OG_IMG_SIZE is the size of your reconstructed masks
-            pred = torch.zeros(1, 1, 192, 192) # Use correct size
+            pred = torch.zeros(1, 1, 160, 160) # Use correct size
+            # pred = torch.zeros(1, 1, 192, 192)
             
+        print(label_path)
+
         # Load label
         label = cv2.imread(label_path, cv2.IMREAD_GRAYSCALE)
+        label = cv2.resize(label, (160, 160), interpolation=cv2.INTER_AREA)
+
+        print(label)
         
         # Convert to tensor and NORMALIZE to [0, 1] range
         label = torch.from_numpy(label).float() / 255.0
@@ -82,7 +88,7 @@ def evaluate_ensemble(pred_dir, label_dir):
 if __name__ == "__main__":
     SPLIT = "test"
     PRED_PATH = f"reconstructed_{SPLIT}/labels"
-    LABEL_PATH = "stacked_segmentation/labels"
+    LABEL_PATH = "stacked_segmentation/masks"
     
     evaluate_ensemble(os.path.join(PRED_PATH, SPLIT), os.path.join(LABEL_PATH, SPLIT))
 

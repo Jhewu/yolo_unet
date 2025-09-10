@@ -1,2 +1,16 @@
 verifier_dataset/ 
 runs/*
+
+gli_verifier_dataset.zip
+protected_dataset/
+ssa_classification_dataset.zip
+ssa_classification_dataset_/
+ssa_classification_dataset_5/
+ssa_verifier_dataset_n/
+ssa_verifier_dataset_n_good/
+ssa_yolo_cropped_n/
+ssa_yolo_cropped_n_good (Copy)/
+ssa_yolo_cropped_n_good/
+ssa_yolo_cropped_n_verified/
+
+train*/

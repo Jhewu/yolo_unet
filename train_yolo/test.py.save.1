@@ -1,0 +1,255 @@
+from custom_yolo.custom_trainer import CustomSegmentationTrainer
+from torch.nn import Sequential, Module
+from torch import nn
+import torch
+from collections import OrderedDict, deque
+from typing import List
+
+from ultralytics.nn.modules import (
+    ## For the bottleneck
+    CBAM, BottleneckCSP, 
+
+    ## For the decoder reconstruct
+    Conv, C3k2, A2C2f, 
+    
+    ## To upsample in decoder
+    ConvTranspose)
+
+MODEL_DIR = "train_yolo12n-seg_2025_08_30_00_41_25/yolo12n-seg_data/weights/best.pt"
+
+class YOLOU(Module): 
+    def __init__(self, 
+                 pretrained_yolo, 
+                 num_classes: int = 1, 
+                 image_size: int = 160, 
+                 target_modules_indices: List[int] = [0, 1, 4, 6, 8], 
+                 yolo_concat_modules_indices: List[int] = [4, 6, 8]): 
+        """
+        ### WORK IN PROGRESS ### 
+        Creates a YOLOU Network with a Pretrain YOLO model
+        
+        Args: 
+            pretrained_yolo (): 
+            target_modules_indices (list [int]): 
+        
+        TODO: Might reduce target module indices for efficiency
+        """
+
+        super().__init__()
+        self.yolo = pretrained_yolo
+        self.backbone = pretrained_yolo.model[0:9] 
+        self.neck1 = pretrained_yolo.model[9:15]
+        self.neck2 = pretrained_yolo.model[15:21]
+        self.head = pretrained_yolo.model[21:]
+        self.encoder = self.backbone
+        self.decoder = self.reconstruct_decoder_from_encoder()
+
+        self.bottleneck = Sequential(
+            BottleneckCSP(c1=256, 
+                          c2=256, 
+                          n=2, 
+                          shortcut=True, 
+	                          g=1,
+                          e=0.5))
+        
+        self.skip_encoder_indices = set(target_modules_indices)
+        self.skip_decoder_indices = set([abs(target_modules_indices[-1] - item) # ---> Reverses and normalizes the indices
+                                             for item in target_modules_indices[::-1]])
+        
+        self.YOLO_in_concat_indices1 = set([1, 4])
+        self.YOLO_in_concat_indices2 = set([4]) 
+        self.YOLO_in_concat_indices3 = set([0, 1]) 
+
+        self.YOLO_out_concat_indices1 = set([4, 6, 8])
+        self.YOLO_out_concat_indices2 = set([2]) 
+        self.YOLO_out_concat_indices3 = set([0, 3]) 
+
+        self.skip_connections = []
+        self.YOLO_concat = []
+
+        self.assign_hooks() 
+
+        self.activation_cache = {} 
+
+    def hook_fn(self, module, input, output):
+        # Get module index from its position in the sequential
+        module_name = f"layer_{id(module)}"  # or use a counter
+        self.activation_cache[module_name] = output.detach().clone()
+
+    def assign_hooks(self): 
+       model = self.yolo.model
+       print(type(model))
+       head_index = len(list(model))-1
+       print(head_index)
+    
+        def hook_submodules(module, prefix=""):
+            for name, submodule in module.named_modules():
+                if isinstance(submodule, nn.ReLU):  # or your target layer
+                    # Create unique name
+                    full_name = f"{prefix}.{name}" if prefix else name
+                    submodule.register_forward_hook(self.hook_fn)
+                    print(f"Hook registered on: {full_name}")
+
+
+       #for idx, lay	er in enumerate(model): 
+       #    if idx == head_index: 
+       #        print(f"\n\n{layer}\n")
+       #        layer.register_forward_hook(self.hook_fn)
+
+    def create_concat_block(self, skip, x):
+        conv = Conv(
+            c1=skip.size(1)+x.size(1), 
+            c2=skip.size(1), 
+            k=1, 
+            s=1).to(x.device)
+        return conv(torch.cat([skip, x], dim=1))
+
+    def YOLO_forward(self, x): 
+        ## TODO: Create YOLO forward + cache 
+        ### Forward through encoder while saving skip outputs
+        for i, layer in enumerate(self.backbone.children()): 
+            print(x.size())
+            x = layer(x)
+            self.skip_connections.append(x) if i in self.skip_encoder_indices else None
+            self.YOLO_concat.append(x) if i in self.YOLO_out_concat_indices1 else None
+        x8 = x 
+        # for i, layer in enumerate(self.neck1.children()):
+            ### Handle incoming in concat
+            # if i in self.YOLO_in_concat_indices1: 
+            
+
+            ### Appens outcoming concat 
+       
+        print(len(self.yolo.model))
+        # print(len(self.skip_connections))
+        # print(len(self.YOLO_concat))
+        return x
+
+    def _make_hook(self, name):
+        def hook(module, input, output):
+            self.cache[name] = output.detach()  # or .clone() if you need gradients
+        return hook
+
+    def forward(self, x): 
+        x = self.yolo(x)
+        # print(x)
+
+        # ### TODO: Implement mask concatenation here, alongside the gating mechanism
+        # ### (e.g., CBAM or SE blocks)
+        # x = self.bottleneck(x)
+
+        # ### Forward through decoder while concatenating skip outputs
+        # for i, layer in enumerate(self.decoder.children()):
+        #     if i in self.skip_decoder_indices: 
+        #         x = self.create_concat_block(self.skip_connections.pop(), x)
+
+        #     x = layer(x)
+        #     print(x.size())
+
+        return x
+
+    def reverse_module_channels(self, module: nn.Module) -> nn.Module:
+        """Reverses the input and output channels of a Conv2d module."""
+        if isinstance(module, Conv):
+            return ConvTranspose(
+                c1=module.conv.out_channels, 
+                c2=module.conv.in_channels,
+                s=module.conv.stride,
+                p=module.conv.padding, 
+                bn=True,
+
+                ## To reconstruct the image size of the respective Conv layer
+                k=4)
+            
+        elif isinstance(module, A2C2f):
+            return A2C2f(
+                c1=module.cv2.conv.out_channels,
+                c2=module.cv1.conv.in_channels,
+                 
+                ## Referencing YOLO12-seg model summary at training start
+                a2=True)
+
+        elif isinstance(module, C3k2): 
+            return C3k2(
+                c1=module.cv2.conv.out_channels, 
+                c2=module.cv1.conv.in_channels,
+                
+                ## Referencing YOLO12-seg model summary at training start
+                n=2, 
+                c3k=False, 
+                e=0.25)
+    
+    def reconstruct_decoder_from_encoder(self): 
+        """
+        Forward pass through A2C2f layer.
+
+        Args:
+            x (torch.Tensor): Input tensor.
+
+        Returns:
+            (torch.Tensor): Output tensor after processing.
+        """
+        decoder_modules = OrderedDict()        
+        
+        # Iterate through the encoder layers in reverse order
+        for name, module in reversed(list(self.encoder.named_children())):
+            reversed_module = self.reverse_module_channels(module)
+            decoder_modules[f'decoder_{name}'] = reversed_module
+                
+        return nn.Sequential(decoder_modules)
+    
+    def check_encoder_decoder_symmetry(self, backbone_last_index: int): 
+        """
+        Prints encoder and decoder to check for symmetry
+
+        Args:
+            backbone_last_index (int): last index of the backbone in YOLOv12
+
+        Returns:
+            N/A
+        """
+
+        for i in range(backbone_last_index): 
+            print(f"\n### Comparison {i}:\n{self.encoder[i]}\n")
+            print(f"{self.decoder[backbone_last_index - 1 - i]}\n\n")
+            
+if __name__ == "__main__":
+    args = dict(model=MODEL_DIR,
+                data=f"datasets/data.yaml")
+    trainer = CustomSegmentationTrainer(overrides=args)
+    trainer.setup_model()["model"]          # --> Load the model to YOLO framework
+    pretrained_yolo = trainer.model         # --> Fetch the YOLO Segmentation model
+
+    model = YOLOU(pretrained_yolo)
+    zeros = torch.zeros((1, 4, 160, 160))
+    x = model(zeros)
+
+    ## Obtain the pretrain until last layer
+    # no_head = pretrained_yolo.model[:-1]
+
+    # for i, layer in enumerate(pretrained_yolo.model[-1].named_children()): 
+    #     print(i)
+    #     print(layer)
+    #     print()
+
+    # x = pretrained_yolo(zeros)
+
+    # print(x[0][0].size())
+    # print(x[1].size())
+    # print(x[2].size())
+
+    # # print(len(x[0]))
+    # # print(len(x[1]))
+    # # print(len(x[2]))
+
+    # print(pretrained_yolo.model[-1])
+
+    # import matplotlib.pyplot as plt
+    # plt.imshow(x[0][0].detach().numpy())
+    # plt.show()
+    
+    # outputs = model(zeros)
+
+    # print(x)
+
+

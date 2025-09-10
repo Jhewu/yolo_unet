@@ -67,76 +67,21 @@ def PredYOLO():
 
 def TrainYOLO():
     print("\nStarting Training...")
-    CreateDir("callbacks")
 
-    # Add callback for the model
-    # model.add_callback("on_train_epoch_end", LogMetricMemorySpeed)
+    if LOAD_AND_TRAIN:
+        model = YOLO(BEST_MODEL_DIR_TRAIN)
+    else: model = YOLO(f"{MODEL}.yaml")
 
-    # args = dict(# General 
-    #             model=f"{MODEL}.yaml", 
-    #             data=f"{DATASET}", 
-    #             epochs=EPOCH, 
-    #             pretrained=PRETRAINED, 
-    #             imgsz=IMAGE_SIZE, 
-    #             single_cls=SINGLE_CLS, 
-    #             close_mosaic=CLOSE_MOSAIC, 
-    #             fraction=FRACTION,
-    #             freeze=FREEZE,  
-    #             lr0=INITIAL_LR, 
-    #             lrf=FINAL_LR, 
-    #             warmup_epochs=WARMUP_EPOCH, 
-    #             cls=CLS, 
-    #             box=BOX, 
-    #             dfl=DFL, 
-    #             seed=SEED, 
-    #             batch=BATCH,
-    #             amp=MIX_PRECISION, 
-    #             multi_scale=MULTI_SCALE, 
-    #             cos_lr=COS_LR,
-    #             plots=PLOT,
-    #             profile=PROFILE,
-    #             project=f"{MODE}_{MODEL}_{GetCurrentTime()}",
-    #             name=f"{MODEL}_{DATASET}", 
-                
-    #             # Data Augmentation
-    #             hsv_h=HSV_H, 
-    #             hsv_s=HSV_S, 
-    #             hsv_v=HSV_V, 
-    #             degrees=DEGREES,
-    #             translate=TRANSLATE,
-    #             scale=SCALE,
-    #             flipud=FLIPUD, 
-    #             fliplr=FLIPLR, 
-    #             mosaic=MOSAIC, 
-    #             shear=SHEAR, 
-    #             perspective=PERSPECTIVE, 
-    #             mixup=MIXUP, 
-    #             cutmix=CUTMIX,
-    #             auto_augment=False)
-    
-    # if LOAD_AND_TRAIN: 
-    #     print("\nLoading and Training...")
-    #     args["model"] = BEST_MODEL_DIR_TRAIN
-    #     args["resume"] = RESUME
-    
-    # trainer = CustomClassificationTrainer(overrides=args)
-    # trainer.train()
-
-    model = YOLO(BEST_MODEL_DIR_TRAIN)
     model.train(
-                data="verifier_dataset",
+                data=DATASET,
                 epochs=EPOCH, 
                 pretrained=PRETRAINED, 
                 imgsz=IMAGE_SIZE, 
-                close_mosaic=CLOSE_MOSAIC, 
                 fraction=FRACTION,
                 freeze=FREEZE,  
                 lr0=INITIAL_LR, 
                 lrf=FINAL_LR, 
                 warmup_epochs=WARMUP_EPOCH, 
-                cls=CLS, 
-                box=BOX, 
-                dfl=DFL, 
                 seed=SEED, 
                 batch=BATCH,
                 amp=MIX_PRECISION, 
@@ -160,8 +105,9 @@ def TrainYOLO():
                 shear=SHEAR, 
                 perspective=PERSPECTIVE, 
                 mixup=MIXUP, 
-                cutmix=CUTMIX, 
-                auto_augment="autoaugment")
+                cutmix=CUTMIX,) 
+                # erasing=0,
+                # auto_augment="randaugment")
 
     # print(f"\nEnsuring the Model's input layer was changed: {trainer.setup_model()}")
     print(f"\nFinish training, please check your directory for folder named 'train-....")

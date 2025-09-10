@@ -15,8 +15,8 @@ def MaskToPolygons2(dir_to_examine, output_dir):
 
 def Main(): 
     for split in ["test", "train", "val"]:
-        label_dir = os.path.join("stacked_segmentation", "mask2", split)
-        dest_dir = os.path.join("stacked_segmentation", "labels", split)
+        label_dir = os.path.join("gli_stacked_segmentation", "mask2", split)
+        dest_dir = os.path.join("gli_stacked_segmentation", "labels", split)
         MaskToPolygons2(label_dir, dest_dir)
 
 if __name__ == "__main__": 

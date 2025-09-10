@@ -50,7 +50,7 @@ def PrepareDataLoader(root_dir, image_dir, label_dir, batch, image_size, workers
 
 def VerifyYOLOCrop():
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    model = YOLO("train_yolo12s-cls_2025_08_23_19_59_05/yolo12s-cls_/home/jun/Desktop/inspirit/yolo_unet/train_yolo/verifier_dataset/weights/best.pt")
+    model = YOLO(MODEL_PATH)
 
     for split in SPLIT:
         # Define source and destination directories
@@ -87,10 +87,10 @@ def VerifyYOLOCrop():
                 print(f"{image_path} Verified to be TRUE positive")
 
 if __name__ == "__main__": 
-    DEST = "yolo_cropped_verified"
-    MODEL_PATH = "/home/jun/Desktop/inspirit/yolo_unet/runs/unet_2025_08_23_14_09_02/weights/best.pth"
-    DATASET = "yolo_cropped"
+    DATASET = "ssa_yolo_cropped_n_good"
+    DEST = f"{DATASET}_verified"
+    MODEL_PATH = "/home/jun/Desktop/inspirit/yolo_unet/train_verifier/train_yolo12n-cls_finetuned_ssa_best/yolo12n-cls_/home/jun/Desktop/inspirit/yolo_unet/train_verifier/ssa_verifier_dataset_n_good/weights/best.pt"
     SPLIT = ["test", "train", "val"]
-    IMG_SIZE = 128
+    IMG_SIZE = 96
 
     VerifyYOLOCrop()

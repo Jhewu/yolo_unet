@@ -7,8 +7,8 @@ for more information
 
 ## General parameters
 MODE = "train"            # train, val, test, predict 
-MODEL = "yolo12x-seg"
-DATASET = ''
+MODEL = "yolo12n-seg"
+DATASET = 'data'
 SEED = 42
 
 ## Training parameters
@@ -16,12 +16,12 @@ PRETRAINED = False
 RESUME = False
 EPOCH = 100
 BATCH = 128
-IMAGE_SIZE = 128
+IMAGE_SIZE = 192
 CLOSE_MOSAIC = 0
 FRACTION = 1.0
 INITIAL_LR = 1e-5
 FINAL_LR = 1e-5
-WARMUP_EPOCH = 5
+WARMUP_EPOCH = 10
 
 COS_LR = True
 PROFILE = False

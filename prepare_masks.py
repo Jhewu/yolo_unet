@@ -54,6 +54,6 @@ def convert_masks(input_dir, output_dir):
 if __name__ == "__main__": 
 
     for split in ["test", "train", "val"]:
-        label_dir = os.path.join("stacked_segmentation", "masks", split)
-        dest_dir = os.path.join("stacked_segmentation", "mask2", split)
+        label_dir = os.path.join("gli_stacked_segmentation", "masks", split)
+        dest_dir = os.path.join("gli_stacked_segmentation", "mask2", split)
         convert_masks(label_dir, dest_dir)

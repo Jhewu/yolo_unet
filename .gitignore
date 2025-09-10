@@ -26,3 +26,8 @@ runs/
 yolo_cropped*/
 gli_stacked_segmentation/
 ssa_stacked_segmentation/
+
+gli_yolo_cropped_n/
+gli_verifier_dataset_n/
+ssa_verifier_dataset_n_fixed/
+ssa_yolo_cropped_n_fixed/
