@@ -234,9 +234,6 @@ class CustomSegmentationPredictor(CustomDetectionPredictor):
         """
         # Extract protos - tuple if PyTorch model or array if exported
         protos = preds[1][-1] if isinstance(preds[1], tuple) else preds[1]
-        print()
-        print("This is protos")
-        print(protos.size())
         return super().postprocess(preds[0], img, orig_imgs, protos=protos)
 
     def construct_results(self, preds, img, orig_imgs, protos):
