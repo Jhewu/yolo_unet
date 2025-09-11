@@ -23,19 +23,76 @@ from ultralytics.nn.modules import (
     ## To upsample in decoder
     ConvTranspose)
 
+from typing import Tuple
+
 MODEL_DIR = "train_yolo12n-seg_2025_08_30_00_41_25/yolo12n-seg_data/weights/best.pt"
 
+import os
+import numpy as np
+from PIL import Image
+from torchvision import transforms
+from torch.utils.data.dataset import Dataset
+
+class SegmentationDataset(Dataset):
+    def __init__(self, root_path: str, 
+                 image_path: str, mask_path: str, 
+                 image_size: int, subsample: float = 1.0):
+        """
+        Create Local Dataset for Image Segmentation
+
+        Args:
+            root_path   (str): dataset root path where images and masks directories are present
+            image_path  (str): images path (relative to root_path)
+            mask_path   (str): masks path (relative to root_path)
+            image_size  (int): img_size x img_size to load images
+            subsample (float): loads only a subset of images
+        """
+        self.root_path = root_path
+        self.images = sorted([root_path+f"/{image_path}/"+i 
+                              for i in os.listdir(root_path+f"/{image_path}/")])
+        self.masks = sorted([root_path+f"/{mask_path}/"+i 
+                             for i in os.listdir(root_path+f"/{mask_path}/")])
+
+        if len(self.images) != len(self.masks): 
+            raise ValueError("Length of images and masks are not the same")
+        
+        # Subsample if implemented
+        self.images = self.images[:int(len(self.images)*subsample)]
+        self.masks = self.masks[:int(len(self.masks)*subsample)]
+        
+        self.transform = transforms.Compose([
+            transforms.Resize((image_size, image_size)),
+            transforms.ToTensor(),
+            ])
+        
+    def __getitem__(self, index: int) -> Tuple[torch.Tensor, torch.Tensor]:
+        img = Image.open(self.images[index]).convert("RGBA")
+        mask = Image.open(self.masks[index]).convert("L")
+
+        return self.transform(img), self.transform(mask)
+
+    def __len__(self):
+        return len(self.images)
+
 class ECA(nn.Module):
-    """Constructs a ECA module.
-    Args:
-        channel: Number of channels of the input feature map
-    """
-    def __init__(self, channel, k_size=3):
+    def __init__(self, k_size: int = 3):
         super(ECA, self).__init__()
+        """
+        Constructs a ECA module. Efficient Channel Attention for Conv
+
+        Args: 
+            k_size (int): kernel size for Conv1d
+        """
         self.avg_pool = nn.AdaptiveAvgPool2d(1)
         self.conv = nn.Conv1d(1, 1, kernel_size=k_size, padding=(k_size - 1) // 2, bias=False) 
 
-    def forward(self, x):
+    def forward(self, x: torch.tensor) -> torch.tensor:
+        """
+        Args: 
+            x (torch.tensor): input tensor (after mask + x concat)
+        Returns:
+            (torch.tensor)  : output tensor (same dimensions as input tensor but with attention applied)
+        """
         # feature descriptor on the global spatial information
         y = self.avg_pool(x)
 
@@ -48,12 +105,16 @@ class ECA(nn.Module):
         return x * y.expand_as(x)
 
 class SpatialTransformer(nn.Module):
-    """
-    Spatial Transformer Module that predicts affine transformation 
-    from backbone features ONLY (no mask concatenation).
-    Can be applied to features or input images.
-    """
-    def __init__(self, in_channels, mode='bilinear'):
+    def __init__(self, in_channels: int, mode: str = 'bilinear'):
+        """
+        Spatial Transformer Module that predicts affine transformation 
+        from backbone features ONLY (no mask concatenation).
+        Can be applied to features or input images.
+
+        Args: 
+            in_channels (int): input channels
+            mode        (str): interpolation method
+        """
         super().__init__()
         self.mode = mode
 
@@ -71,12 +132,13 @@ class SpatialTransformer(nn.Module):
         self.loc_net[-1].weight.data.zero_()
         self.loc_net[-1].bias.data.copy_(torch.tensor([1, 0, 0, 0, 1, 0], dtype=torch.float))
 
-    def forward(self, x):
+    def forward(self, x: torch.tensor) -> torch.tensor:
         """
-        x: input tensor [B, C, H, W] — could be image or feature map
+        Args: 
+            x (torch.tensor): input tensor [B, C, H, W] — could be image or feature map
         Returns:
-            transformed: warped version of x
-            theta: affine matrix [B, 2, 3]
+            transformed (torch.tensor): warped version of x
+            theta       (torch.tensor): affine matrix [B, 2, 3]
         """
         # Predict affine parameters from global pooling
         theta_flat = self.loc_net(x).squeeze(-1).squeeze(-1)  # [B, 6]
@@ -255,8 +317,214 @@ class YOLOU(Module):
         proj_conv = nn.Conv2d(1, 256, kernel_size=1).to("cuda")                                 
         masks = proj_conv(mask)                                                                 # -> [B, 256, 5, 5]
         concat = torch.cat([masks, x], dim=1).to("cuda")                                        # -> [B, 512, 5, 5]
-        self.eca = ECA(channel=concat.size()[1]).to("cuda")                                     # Applying masks attention
+        self.eca = ECA().to("cuda")                                                             # Applying masks attention
         return self.eca(concat)
+    
+    # def train(self): 
+    #     device = "cuda" if torch.cuda.is_available() else "cpu"
+    
+    # train_dataset = SegmentationDataset(DATA_PATH, "images/train", "labels/train", IMAGE_SIZE)
+    # val_dataset = SegmentationDataset(DATA_PATH, "images/test", "labels/test", IMAGE_SIZE)
+
+    # train_dataloader = DataLoader(dataset=train_dataset,
+    #                             batch_size=BATCH_SIZE,
+    #                             shuffle=True)
+    # val_dataloader = DataLoader(dataset=val_dataset,
+    #                             batch_size=BATCH_SIZE,
+    #                             shuffle=True)
+
+    # model = deeplabv3_resnet50(weights=DeepLabV3_ResNet50_Weights.DEFAULT)
+
+    # # Grab the original conv1
+    # orig_conv1 = model.backbone.conv1
+
+    # # Build a new conv that takes 4 channels
+    # new_conv1 = torch.nn.Conv2d(
+    #     in_channels=4,                    # <-- changed
+    #     out_channels=orig_conv1.out_channels,
+    #     kernel_size=orig_conv1.kernel_size,
+    #     stride=orig_conv1.stride,
+    #     padding=orig_conv1.padding,
+    #     bias=orig_conv1.bias is not None   # preserve bias flag
+    # )
+
+    # # --- initialize the new conv ---------------------------------
+    # with torch.no_grad():
+    #     # Copy the pre‑trained weights for the first 3 channels
+    #     new_conv1.weight[:, :3] = orig_conv1.weight
+
+    #     # Decide how to initialise the 4th channel
+    #     # 1) Zero init (most common)
+    #     new_conv1.weight[:, 3:4] = torch.zeros_like(orig_conv1.weight[:, :1])
+
+    # # Swap the conv in the model
+    # model.backbone.conv1 = new_conv1
+
+    # # Replace the final 1x1 conv to output 1 channel
+    # new_classifier = torch.nn.Sequential(
+    #     # keep everything before the final conv
+    #     *list(model.classifier.children())[:-1],          # all layers except the last conv
+    #     torch.nn.Conv2d(
+    #         in_channels=256,
+    #         out_channels=1,        # <‑‑ change here
+    #         kernel_size=1,
+    #         stride=1,
+    #         padding=0
+    #     )
+    # )
+
+    # # Assign the new head back to the model
+    # model.classifier = new_classifier
+
+    # if LOAD_AND_TRAIN: 
+    #     model.load_state_dict(torch.load(MODEL_PATH, map_location=torch.device(device)))
+
+    # summary(model, input_size=(BATCH_SIZE, 4, IMAGE_SIZE, IMAGE_SIZE))
+
+    # # Initialize the optimizer, to adjust the parameters of a model and minimize the loss function
+    # optimizer = optim.AdamW(model.parameters(), lr=LEARNING_RATE)
+
+    # if LOAD_AND_TRAIN:
+    #     scheduler = optim.lr_scheduler.ReduceLROnPlateau(
+    #     optimizer, mode='min', factor=0.3, patience=int(PATIENCE * 0.5), verbose=True)
+    # else: scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=EPOCHS)
+
+    # # For Mixed-Precision Training
+    # scaler = GradScaler("cuda")
+
+    # # Initialize variables for callbacks
+    # history = dict(train_loss=[], val_loss=[], train_dice_metric=[], val_dice_metric=[])
+    # best_val_loss = float("inf")
+
+    # dest_dir = f"runs/unet_{GetCurrentTime()}" 
+    # model_dir = os.path.join(dest_dir, "weights")
+    # CreateDir(model_dir)
+
+    # # Initialize local patience variable for early stopping
+    # patience = 0
+
+    # combined_loss = DiceFocalTverskyLoss()
+
+    # for epoch in tqdm(range(EPOCHS)):
+    #     model.train()
+
+    #     start_time = time.time()
+    #     train_running_loss = 0
+    #     train_running_dice_metric = 0
+
+    #     if MIX_PRECISION:
+    #         for idx, img_mask in enumerate(tqdm(train_dataloader)):
+    #             with torch.amp.autocast(device_type="cuda"): 
+    #                 img = img_mask[0].float().to(device)
+    #                 mask = img_mask[1].float().to(device)
+
+    #                 y_pred = model(img)["out"]
+    #                 loss = combined_loss(y_pred, mask)
+    #                 metric = dice_metric(y_pred, mask)
+
+    #             optimizer.zero_grad()
+    #             scaler.scale(loss).backward()
+
+    #             # Unscales the gradients of optimizer's assigned params in-place
+    #             scaler.unscale_(optimizer)
+
+    #             # Since the gradients of optimizer's assigned params are unscaled, clips as usual:
+    #             torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+
+    #             # Optimizer's gradients are already unscaled, so scaler.step does not unscale them,
+    #             # although it still skips optimizer.step() if the gradients contain infs or NaNs.
+    #             scaler.step(optimizer)
+
+    #             # Updates the scale for next iteration.
+    #             scaler.update()
+
+    #             train_running_loss += loss.item()
+    #             train_running_dice_metric += metric.item()
+
+    #     else:
+    #         for idx, img_mask in enumerate(tqdm(train_dataloader)):
+    #             img = img_mask[0].float().to(device)
+    #             mask = img_mask[1].float().to(device)
+
+    #             y_pred = model(img)["out"]
+    #             optimizer.zero_grad()
+
+    #             loss = dice_loss(y_pred, mask)
+    #             metric = dice_metric(y_pred, mask)
+
+    #             train_running_loss += loss.item()
+    #             train_running_dice_metric += metric.item()
+                
+    #             loss.backward()
+    #             torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+    #             optimizer.step()
+
+    #     end_time = time.time()
+    #     train_loss = train_running_loss / (idx + 1)
+    #     train_dice_metric = train_running_dice_metric / (idx + 1)
+
+    #     model.eval()
+    #     val_running_loss = 0
+    #     val_running_dice_metric = 0
+
+    #     with torch.no_grad():
+    #         for idx, img_mask in enumerate(tqdm(val_dataloader)):
+    #             img = img_mask[0].float().to(device)
+    #             mask = img_mask[1].float().to(device)
+                
+    #             y_pred = model(img)["out"]
+    #             loss = dice_loss(y_pred, mask)
+    #             val_metric = dice_metric(y_pred, mask)
+
+    #             val_running_loss += loss.item()
+    #             val_running_dice_metric += val_metric.item()
+
+    #         val_loss = val_running_loss / (idx + 1)
+    #         val_dice_metric = val_running_dice_metric / (idx + 1)
+        
+    #     # Update the scheduler
+    #     if LOAD_AND_TRAIN:
+    #         scheduler.step(val_loss)
+    #     else: scheduler.step()
+
+    #     history["train_loss"].append(train_loss)
+    #     history["val_loss"].append(val_loss)
+    #     history["val_dice_metric"].append(val_dice_metric)
+    #     history["train_dice_metric"].append(train_dice_metric)
+
+    #     if val_loss < best_val_loss: 
+    #         if (best_val_loss - val_loss) > 1e-3:
+    #             print(f"Validation loss improved from {best_val_loss:.4f} to {val_loss:.4f}. Saving model...")
+    #             best_val_loss = val_loss
+    #             torch.save(model.state_dict(), os.path.join(os.path.join(model_dir, "best.pth")))
+    #             patience = 0
+    #         else: 
+    #             print(f"Validation loss improved slightly from {best_val_loss:.4f} to {val_loss:.4f}, but not significantly enough to save the model.")
+    #             if epoch+1 >= EARLY_STOPPING_START: 
+    #                 patience+=1
+    #     else:
+    #         if epoch+1 >= EARLY_STOPPING_START: 
+    #             patience+=1
+        
+    #     history_df = pd.DataFrame(history)
+    #     history_df.to_csv(os.path.join(dest_dir, "history.csv"), index=False)
+
+    #     print("-"*30)
+    #     print(f"This is Patience {patience}")
+    #     print(f"Training Speed per EPOCH (in seconds): {end_time - start_time:.4f}")
+    #     print(f"Maximum Gigabytes of VRAM Used: {torch.cuda.max_memory_reserved(device) * 1e-9:.4f}")
+    #     print(f"Train Loss EPOCH {epoch+1}: {train_loss:.4f}")
+    #     print(f"Valid Loss EPOCH {epoch+1}: {val_loss:.4f}")
+    #     print(f"Train DICE Score EPOCH {epoch+1}: {train_dice_metric:.4f}")
+    #     print(f"Valid DICE Score EPOCH {epoch+1}: {val_dice_metric:.4f}")
+    #     print("-"*30)
+
+    #     if patience >= PATIENCE: 
+    #         print(f"\nEARLY STOPPING: Valid Loss did not improve since epoch {epoch+1-patience}, terminating training...")
+    #         break
+
+    # torch.save(model.state_dict(), os.path.join(os.path.join(model_dir, "last.pth")))
+    # plot_loss_curves(history, dest_dir)
 
     def forward(self, x: torch.tensor) -> torch.tensor: 
         """
