@@ -2,7 +2,7 @@ from ultralytics.models.yolo.detect import DetectionTrainer
 from ultralytics.models.yolo.segment import SegmentationTrainer
 from ultralytics.nn.tasks import DetectionModel
 from ultralytics.utils.torch_utils import de_parallel
-from custom_yolo.custom_build_data import build_yolo_dataset
+from custom_yolo_trainer.custom_build_data import build_yolo_dataset
 from ultralytics.utils import RANK
 from typing import Optional
 
@@ -12,7 +12,7 @@ from pathlib import Path
 from ultralytics.data import ClassificationDataset
 from ultralytics.models.yolo.classify import ClassificationTrainer
 
-from custom_yolo.custom_segmentation_model import CustomSegmentationModel
+from custom_yolo_trainer.custom_segmentation_model import CustomSegmentationModel
 
 class CustomSegmentationTrainer(SegmentationTrainer):
     def build_dataset(self, img_path: str, mode: str = "train", batch: Optional[int] = None):

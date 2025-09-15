@@ -3,7 +3,7 @@ from ultralytics.data.utils import verify_image_label
 from ultralytics.utils.ops import resample_segments
 from ultralytics.utils.instance import Instances
 from multiprocessing.pool import ThreadPool
-from custom_yolo.custom_base import CustomBaseDataset
+from custom_yolo_trainer.custom_base import CustomBaseDataset
 from typing import Optional, Dict, List
 from ultralytics.utils import TQDM 
 from itertools import repeat
@@ -24,7 +24,7 @@ from ultralytics.data.augment import (
     Format,
     LetterBox)
 
-from custom_yolo.custom_v8_transforms import v8_transforms
+from custom_yolo_trainer.custom_v8_transforms import v8_transforms
 
 DATASET_CACHE_VERSION = "1.0.3"
 

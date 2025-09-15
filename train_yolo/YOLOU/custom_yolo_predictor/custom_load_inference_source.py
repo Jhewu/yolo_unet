@@ -1,5 +1,5 @@
-from custom_predictor.custom_load_images_and_videos import CustomLoadImagesAndVideos
-from custom_predictor.custom_load_pil_and_numpy import CustomLoadPilAndNumpy
+from custom_yolo_predictor.custom_load_images_and_videos import CustomLoadImagesAndVideos
+from custom_yolo_predictor.custom_load_pil_and_numpy import CustomLoadPilAndNumpy
 from ultralytics.data.build import check_source
 from ultralytics.data.loaders import (
     LoadPilAndNumpy,

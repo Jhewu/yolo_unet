@@ -1,4 +1,4 @@
-from custom_yolo.custom_data import CustomYOLODataset
+from custom_yolo_trainer.custom_data import CustomYOLODataset
 from ultralytics.cfg import IterableSimpleNamespace
 from ultralytics.utils import colorstr
 from typing import Any, Dict

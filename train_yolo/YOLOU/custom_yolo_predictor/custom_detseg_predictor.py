@@ -1,4 +1,4 @@
-from custom_predictor.custom_predictor import CustomBasePredictor
+from custom_yolo_predictor.custom_predictor import CustomBasePredictor
 from ultralytics.engine.results import Results
 from ultralytics.utils import DEFAULT_CFG, ops
 
@@ -35,6 +35,7 @@ def process_mask(protos, masks_in, bboxes, shape, upsample: bool = False):
     masks = crop_mask(masks, downsampled_bboxes)  # CHW
     if upsample:
         masks = F.interpolate(masks[None], shape, mode="bilinear", align_corners=False)[0]  # CHW
+    # return masks.gt_(0.0)
     return masks
 
 def process_mask_native(protos, masks_in, bboxes, shape):
@@ -54,6 +55,7 @@ def process_mask_native(protos, masks_in, bboxes, shape):
     masks = (masks_in @ protos.float().view(c, -1)).view(-1, mh, mw)
     masks = scale_masks(masks[None], shape)[0]  # CHW
     masks = crop_mask(masks, bboxes)  # CHW
+    # return masks.gt_(0.0)
     return masks
 
 class CustomDetectionPredictor(CustomBasePredictor):
@@ -234,6 +236,7 @@ class CustomSegmentationPredictor(CustomDetectionPredictor):
         """
         # Extract protos - tuple if PyTorch model or array if exported
         protos = preds[1][-1] if isinstance(preds[1], tuple) else preds[1]
+        # print(f"\nThis is protos {protos.size()}")
         return super().postprocess(preds[0], img, orig_imgs, protos=protos)
 
     def construct_results(self, preds, img, orig_imgs, protos):

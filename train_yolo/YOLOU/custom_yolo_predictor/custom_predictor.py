@@ -1,4 +1,4 @@
-from custom_predictor.custom_load_inference_source import load_inference_source
+from custom_yolo_predictor.custom_load_inference_source import load_inference_source
 from ultralytics.engine.predictor import BasePredictor
 from ultralytics.utils.checks import check_imgsz
 from ultralytics.utils import LOGGER

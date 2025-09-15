@@ -1,7 +1,7 @@
 from ultralytics.nn.tasks import DetectionModel
 from ultralytics.utils.loss import v8SegmentationLoss
 
-from custom_yolo.custom_v8_segmentation_loss import Customv8SegmentationLoss
+from custom_yolo_trainer.custom_v8_segmentation_loss import Customv8SegmentationLoss
 
 class CustomSegmentationModel(DetectionModel):
     """
