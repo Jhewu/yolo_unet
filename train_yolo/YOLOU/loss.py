@@ -1,33 +1,92 @@
 import torch
+from monai.losses import HausdorffDTLoss, TverskyLoss, DiceLoss, FocalLoss
+from monai.metrics import DiceMetric, HausdorffDistanceMetric
 
-class DiceFocalTverskyLoss(torch.nn.Module):
-    def __init__(self, alpha=0.6, beta=0.4, gamma=1.5, smooth=1e-6):
+class YOLOULoss(torch.nn.Module): 
+    """
+    Loss for YOLOU: Dice Loss + Hausdorff Distance + Focal Loss
+
+    Args:
+        a (float): Bias for Dice & Tversky Loss (shared equally)
+        b (float): Bias for Hausdorff Distance Loss 
+        c (float): Bias for Focal Loss (only on pixels that Stage 1 Missed)
+    """
+    def __init__(self,  a: float = 1.0, 
+                        b: float = 0.5,
+                        c: float = 0.3,
+                        ): 
         super().__init__()
-        self.alpha = alpha
-        self.beta = beta
-        self.gamma = gamma
-        self.smooth = smooth
+        self.a = a
+        self.b = b
+        self.c = c
+        
+        self.dice = DiceLoss()
+        self.tversky = TverskyLoss(alpha=0.6, beta=0.4) # --> Emphasize precision
+        self.hausdorff = HausdorffDTLoss(include_background=False)
+        self.focal = FocalLoss(reduction="none")
+        
+    def forward(self, 
+                    preds: torch.tensor, 
+                    init_preds: torch.tensor,
+                    targets: torch.tensor,
+                    sigmoid: bool = True ) -> torch.tensor:
+        """
+        Computes YOLOU composite loss. 
 
-    def forward(self, inputs, targets):
-        inputs = torch.sigmoid(inputs)
-        inputs = inputs.view(-1)
-        targets = targets.view(-1)
+        Args: 
+            preds      (torch.tensor): YOLOU predicted tensor
+            init_preds (torch.tensor): YOLOv12-Seg predicted tensor (course masks)
+            target     (torch.tensor): Ground truth tensor
+            sigmoid    (bool)        : If True apply Sigmoid, else no
 
-        # === Dice Loss ===
-        intersection = (inputs * targets).sum()
-        dice = (2. * intersection + self.smooth) / (inputs.sum() + targets.sum() + self.smooth)
-        dice_loss = 1 - dice
+        Returns: 
+            total_loss (torch.tensor)
+        """
 
-        # === Focal Tversky Loss ===
-        TP = (inputs * targets).sum()
-        FP = ((1 - targets) * inputs).sum()
-        FN = (targets * (1 - inputs)).sum()
-        tversky = (TP + self.smooth) / (TP + self.alpha * FP + self.beta * FN + self.smooth)
-        focal_tversky_loss = (1 - tversky) ** self.gamma
+        if sigmoid: 
+            preds = torch.sigmoid(preds)
+            init_preds = torch.sigmoid(init_preds)
+    
+        # Only penalize pixels where GT says tumor exists, but Stage 1 missed it
+        fn_mask = (targets == 1) & (init_preds < 0.1)  # [B, 1, H, W]
+        focal_loss = (self.focal(preds, targets) * fn_mask.float()).mean()
+    
+        total_loss = (
+            (self.a/2) * self.dice(preds, targets) +
+            (self.a/2) * self.tversky(preds, targets) +
+            self.b * self.hausdorff(preds, targets) +
+            self.c * focal_loss
+            )
+        return total_loss
 
-        # === Combined ===
-        loss = 0.5 * dice_loss + 0.5 * focal_tversky_loss
-        return loss
+# class DiceFocalTverskyLoss(torch.nn.Module):
+#     def __init__(self, alpha=0.6, beta=0.4, gamma=1.5, smooth=1e-6):
+#         super().__init__()
+#         self.alpha = alpha
+#         self.beta = beta
+#         self.gamma = gamma
+#         self.smooth = smooth
+# 
+#     def forward(self, inputs, targets):
+#         inputs = torch.sigmoid(inputs)
+#         inputs = inputs.view(-1)
+#         targets = targets.view(-1)
+# 
+#         # === Dice Loss ===
+#         intersection = (inputs * targets).sum()
+#         dice = (2. * intersection + self.smooth) / (inputs.sum() + targets.sum() + self.smooth)
+#         dice_loss = 1 - dice
+# 
+#         # === Focal Tversky Loss ===
+#         TP = (inputs * targets).sum()
+#         FP = ((1 - targets) * inputs).sum()
+#         FN = (targets * (1 - inputs)).sum()
+#         tversky = (TP + self.smooth) / (TP + self.alpha * FP + self.beta * FN + self.smooth)
+#         focal_tversky_loss = (1 - tversky) ** self.gamma
+# 
+#         # === Combined ===
+#         loss = 0.5 * dice_loss + 0.5 * focal_tversky_loss
+#         return loss
 
 def dice_metric(pred, target, smooth=1e-8):
     """
@@ -56,7 +115,7 @@ def dice_metric(pred, target, smooth=1e-8):
     
     return dice.mean()  # Average across batch
 
-def dice_loss(pred, target, smooth=1e-8):
+def dice_loss(pred: torch.tensor, target:torch.tensor, smooth: float = 1e-8):
     """
     Computes the Dice Loss for binary segmentation.
     Args:
@@ -68,3 +127,5 @@ def dice_loss(pred, target, smooth=1e-8):
     """
     dice_score = dice_metric(pred, target, smooth)
     return 1 - dice_score
+
+

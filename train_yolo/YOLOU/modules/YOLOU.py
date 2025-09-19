@@ -247,7 +247,7 @@ class YOLOU(Module):
         self.activation_cache.clear()
         self.skip_connections.clear()
         print(len(self.activation_cache))
-        return x
+        return yolo_x, x
 
     def _reverse_module_channels(self, module: nn.Module) -> nn.Module:
         """

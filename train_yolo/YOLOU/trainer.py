@@ -3,7 +3,8 @@ from custom_yolo_predictor.custom_detseg_predictor import CustomSegmentationPred
 from custom_yolo_trainer.custom_trainer import CustomSegmentationTrainer
 # from custom_yolo_trainer.custom_segmentation_model import CustomSegmentationModel
 from dataset import SegmentationDataset
-from loss import DiceFocalTverskyLoss, dice_metric, dice_loss
+from loss import dice_metric, dice_loss
+from loss import YOLOULoss 
 
 import os
 import time
@@ -49,6 +50,8 @@ class YOLOU_Trainer:
         self.device = device
         self.data_path = data_path
         self.model_path = model_path
+                
+        self.loss = YOLOULoss()  
 
         self.image_size = image_size
         self.batch_size = batch_size
@@ -148,7 +151,12 @@ class YOLOU_Trainer:
 
         return train_dataloader, val_dataloader
     
-    def train(self): 
+    def train(self) -> None: 
+        """
+        Trains YOLOU model
+
+        TODO: Add description of everything this method does
+        """
         train_dataloader, val_dataloader = self.create_dataloader(data_path=self.data_path)
 
         optimizer = optim.AdamW(self.model.parameters(), lr=self.lr)
@@ -175,7 +183,8 @@ class YOLOU_Trainer:
         patience = 0 # --> local patience for early stopping
 
         """"TODO: MODIFY THE LOSS FUNCTION LATER"""
-        combined_loss = DiceFocalTverskyLoss()
+        # combined_loss = DiceFocalTverskyLoss()
+        combined_loss = self.loss
 
         for epoch in tqdm(range(self.epochs)):
             # Training YOLOU Bottleneck and Decoder
@@ -193,11 +202,16 @@ class YOLOU_Trainer:
                         img = img_mask[0].float().to(self.device)
                         mask = img_mask[1].float().to(self.device)
 
-                        y_pred = model.forward(img)
-                        print(y_pred.size())
+                        yolo_pred, yolou_pred = model.forward(img)
+                        print(yolou_pred.size())
                         print(mask.size())
-                        loss = combined_loss(y_pred, mask)
-                        metric = dice_metric(y_pred, mask)
+                        loss = combined_loss(
+                                            preds=yolou_pred,
+                                            init_preds=yolo_pred,
+                                            targets=mask, 
+                                            sigmoid=True)
+            
+                        metric = dice_metric(yolou_pred, mask)
 
                     optimizer.zero_grad()
                     scaler.scale(loss).backward()
@@ -224,11 +238,15 @@ class YOLOU_Trainer:
                     img = img_mask[0].float().to(self.device)
                     mask = img_mask[1].float().to(self.device)
 
-                    y_pred = model.forward(img)
+                    yolo_pred, yolou_pred = model.forward(img)
                     optimizer.zero_grad()
 
-                    loss = dice_loss(y_pred, mask)
-                    metric = dice_metric(y_pred, mask)
+                    loss = combined_loss(
+                                        preds=yolou_pred,
+                                        init_preds=yolo_pred,
+                                        targets=mask, 
+                                        sigmoid=True)
+                    metric = dice_metric(yolou_pred, mask)
 
                     train_running_loss += loss.item()
                     train_running_dice_metric += metric.item()
@@ -250,9 +268,9 @@ class YOLOU_Trainer:
                     img = img_mask[0].float().to(self.device)
                     mask = img_mask[1].float().to(self.device)
                     
-                    y_pred = model.forward(img)
-                    loss = dice_loss(y_pred, mask)
-                    val_metric = dice_metric(y_pred, mask)
+                    yolo_pred, yolou_pred = model.forward(img)
+                    loss = dice_loss(yolou_pred, mask)
+                    val_metric = dice_metric(yolou_pred, mask)
 
                     val_running_loss += loss.item()
                     val_running_dice_metric += val_metric.item()
