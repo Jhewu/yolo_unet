@@ -26,15 +26,44 @@ class YOLOU(Module):
                  predictor: CustomSegmentationPredictor,
                  target_modules_indices: List[int] = [0, 1, 3, 5, 7]): 
         """
-        ### WORK IN PROGRESS ### 
         Creates a YOLOU Network with a Pretrain YOLOv12-Seg model
-        Idea: rough masks (YOLOv12-Seg) --> fine masks (YOLOU)
+        Main Idea: rough masks (YOLOv12-Seg) --> fine masks (YOLOU)
         
         Args: 
-            trainer   (CustomSegmentationTrainer): Custom YOLO segmentation trainer allowing 4-channels
+            trainer (CustomSegmentationTrainer): Custom YOLO segmentation trainer allowing 4-channels
             predictor (CustomSegmentationTrainer): Custom YOLO segmentation predictor allowing 4-channels
-            target_modules_indices   (list [int]): list of indices to add skip connections (in YOLOv12-Seg every downsample)
+            target_modules_indices (list [int]): list of indices to add skip connections (in YOLOv12-Seg every downsample)
 
+        Attributes: 
+            yolo_trainer (CustomSegmentationTrainer): Custom YOLO segmentation trainer instance
+            yolo_predictor (CustomSegmentationTrainer): Custom YOLO segmentation predictor instance  
+            _yolo_seq (nn.Sequential): YOLOv12-Seg model backbone sequence
+            encoder (nn.Sequential): Encoder portion extracted from YOLOv12-Seg backbone (first 9 layers)
+            decoder (nn.Sequential): Decoder portion constructed from encoder modules
+            bottleneck1 (nn.Sequential): First bottleneck layer with BottleneckCSP block
+            bottleneck2 (nn.Sequential): Second bottleneck layer with BottleneckCSP block
+            stn (SpatialTransformer or None): Spatial Transformer Network for affine transformation
+            eca (ECA or None): ECA attention module for feature enhancement
+            last_conv (ConvTranspose): Final transposed convolution for output reconstruction
+            skip_encoder_indices (set): Set of encoder indices for skip connection targeting
+            skip_decoder_indices (set): Set of decoder indices corresponding to skip connections
+            skip_connections (list): Cache for storing skip connection features during forward pass
+            activation_cache (list): Cache for storing intermediate activations during forward pass
+
+        Methods: 
+            _hook_fn: Forward hook function for caching activations (mainly used for YOLOv12-Seg forward pass)
+            _assign_hooks: Registers forward hooks on specified modules
+            _create_concat_block: Creates concatenation blocks for skip connections
+            YOLO_forward: Performs YOLOv12-Seg forward pass to generate initial masks
+            _STN_forward: Applies spatial transformer network for affine transformation
+            _concat_masks_forward: Concatenates masks with feature maps using ECA attention
+            forward: Main forward pass implementation
+            _reverse_module_channels: Converts encoder modules to decoder-compatible modules
+            _construct_decoder_from_encoder: Builds decoder from encoder modules
+            check_encoder_decoder_symmetry: Utility method to verify encoder-decoder symmetry
+            print_yolo_named_modules: Debug utility to print all YOLO modules
+
+        Methods: 
         
         TODO: Might reduce target module indices for efficiency
         """
@@ -93,7 +122,7 @@ class YOLOU(Module):
         """
         self.activation_cache.append(output)
         # print(f"\nSuccessfully cached the output {module}\n")
-        print(f"\nSuccessfully cached the output")
+        # print(f"\nSuccessfully cached the output")
 
     def _assign_hooks(self, modules: list[str] = ["0", 
                                                 "1",
@@ -156,7 +185,6 @@ class YOLOU(Module):
                 mask_sum = torch.sum(result.masks.data, dim = 0)
             else: 
                 mask_sum = torch.zeros(result.orig_shape[0], result.orig_shape[1]).to("cuda")
-            # print(f"\n\nThis is device {mask_sum.get_device()}")
             mask_batch.append(mask_sum.unsqueeze(0))
 
         return torch.stack(mask_batch), self.activation_cache.pop()
@@ -215,16 +243,16 @@ class YOLOU(Module):
         x = self._concat_masks_forward(yolo_x, x)
         x = self.bottleneck2(x)
 
-        print(f"\nThis is initial activation cache {len(self.activation_cache)}")
+        # print(f"\nThis is initial activation cache {len(self.activation_cache)}")
 
         # decoder
         # COMMENT: for some reason self.yolo_predictor(x) triggers forward hooks twice, therefore
         #          take the middle and +1, because we popped at YOLO_forward()
         if len(self.activation_cache) > 6:
-            print("\nActivation cache is greater than 6!")
+            # print("\nActivation cache is greater than 6!")
             self.skip_connections = self.activation_cache[(len(self.activation_cache)//2)+1:]
         else: 
-            print("\nActivation cache is less than 6!")
+            # print("\nActivation cache is less than 6!")
             self.skip_connections = self.activation_cache
 
         # Convert .children() -> generator to list 
@@ -246,7 +274,6 @@ class YOLOU(Module):
 
         self.activation_cache.clear()
         self.skip_connections.clear()
-        print(len(self.activation_cache))
         return yolo_x, x
 
     def _reverse_module_channels(self, module: nn.Module) -> nn.Module:
@@ -309,7 +336,7 @@ class YOLOU(Module):
                 
         return nn.Sequential(decoder_modules)
     
-    def check_encoder_decoder_symmetry(self, backbone_last_index: int): 
+    def check_encoder_decoder_symmetry(self, backbone_last_index: int) -> None: 
         """
         Prints encoder and decoder to check for symmetry
 
@@ -320,7 +347,7 @@ class YOLOU(Module):
             print(f"\n### Comparison {i}:\n{self.encoder[i]}\n")
             print(f"{self.decoder[backbone_last_index - 1 - i]}\n\n")
 
-    def print_yolo_named_modules(self): 
+    def print_yolo_named_modules(self) -> None: 
         """
         Prints YOLOv12-Seg named modules. 
         Used for caching "x" in between modules

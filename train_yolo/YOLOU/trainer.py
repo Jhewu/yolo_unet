@@ -1,7 +1,7 @@
 from modules.YOLOU import YOLOU
 from custom_yolo_predictor.custom_detseg_predictor import CustomSegmentationPredictor
 from custom_yolo_trainer.custom_trainer import CustomSegmentationTrainer
-# from custom_yolo_trainer.custom_segmentation_model import CustomSegmentationModel
+
 from dataset import SegmentationDataset
 from loss import dice_metric, dice_loss
 from loss import YOLOULoss 
@@ -40,9 +40,53 @@ class YOLOU_Trainer:
                 mixed_precision: bool = True,
                 ):
         """
-        Training Loop for YOLOU
+        Initialize the YOLOU Trainer for training and evaluating YOLOU models.
+        
+        This class handles the complete training loop for YOLOU models including
+        data loading, model training, validation, and optional early stopping.
+        
+        Args:
+            model (YOLOU): The YOLOU model instance to be trained
+            yolo (CustomSegmentationPredictor): YOLO predictor for inference and evaluation
+            data_path (str): Path to the dataset directory containing training data
+            model_path (str, optional): Path to pre-trained YOLOv12-Seg model weights to load. Defaults to None.
+            device (str, optional): Device to run training on ('cuda' or 'cpu'). Defaults to "cuda".
+            early_stopping_start (int, optional): Epoch number to start early stopping monitoring. Defaults to 50.
+            image_size (int, optional): Input image size for model training. Defaults to 160.
+            batch_size (int, optional): Batch size for training. Defaults to 128.
+            lr (float, optional): Learning rate for optimizer. Defaults to 1e-4.
+            epochs (int, optional): Maximum number of training epochs. Defaults to 100.
+            patience (int, optional): Number of epochs to wait before early stopping. Defaults to 25.
+            load_and_train (bool, optional): Whether to load existing model and continue training. Defaults to False.
+            early_stopping (bool, optional): Whether to enable early stopping mechanism. Defaults to True.
+            mixed_precision (bool, optional): Whether to use mixed precision training. Defaults to True.
+         
+        Attributes:
+            model (YOLOU): The YOLOU model being trained
+            yolo (CustomSegmentationPredictor): YOLO predictor for inference
+            device (str): Training device ('cuda' or 'cpu')
+            data_path (str): Path to training dataset
+            model_path (str): Path to pre-trained model weights
+            loss (YOLOULoss): Loss function for training
+            image_size (int): Input image dimensions
+            batch_size (int): Training batch size
+            lr (float): Learning rate
+            epochs (int): Maximum training epochs
+            early_stopping_start (int): Early stopping initiation epoch
+            patience (int): Early stopping patience parameter
+            load_and_train (bool): Flag for loading and continuing training
+            early_stopping (bool): Flag for enabling early stopping
+            mixed_precision (bool): Flag for mixed precision training
+            history (None): Training history storage (initialized as None)
+            
+        Methods:
+            train: Execute the training process.
+            create_dataloader: Get train and validation datasets as dataloaders.
+            plot_loss_curves: Visualize training and validation loss/metric curves.
+            save_model: Save model training checkpoints.
+            get_current_time: Generate a timestamp for logging/output directories.
+            create_dir: Create output directories for logs, models, or results.
 
-        TODO: Use AI to generate Docstrings
         """
     
         self.model = model
@@ -182,8 +226,7 @@ class YOLOU_Trainer:
 
         patience = 0 # --> local patience for early stopping
 
-        """"TODO: MODIFY THE LOSS FUNCTION LATER"""
-        # combined_loss = DiceFocalTverskyLoss()
+        # YOLOU Custom Loss
         combined_loss = self.loss
 
         for epoch in tqdm(range(self.epochs)):
@@ -203,8 +246,6 @@ class YOLOU_Trainer:
                         mask = img_mask[1].float().to(self.device)
 
                         yolo_pred, yolou_pred = model.forward(img)
-                        print(yolou_pred.size())
-                        print(mask.size())
                         loss = combined_loss(
                                             preds=yolou_pred,
                                             init_preds=yolo_pred,
@@ -231,7 +272,6 @@ class YOLOU_Trainer:
 
                     train_running_loss += loss.item()
                     train_running_dice_metric += metric.item()
-                    print("\nEnd of Epoch!\n")
 
             else:
                 for idx, img_mask in enumerate(tqdm(train_dataloader)):
@@ -321,7 +361,6 @@ class YOLOU_Trainer:
                 break
 
         torch.save(model.state_dict(), os.path.join(os.path.join(model_dir, "last.pth")))
-        # self.plot_loss_curves(self.history, dest_dir)
         self.plot_loss_curves(save_path=dest_dir)
 
 if __name__ == "__main__": 
@@ -350,33 +389,8 @@ if __name__ == "__main__":
     trainer = YOLOU_Trainer(model=model, 
                             yolo=YOLO_predictor,
                             data_path=DATA_PATH, 
-                            epochs=1, 
+                            epochs=100,
                             )
-
-    # model.check_encoder_decoder_symmetry(9)
-
-    # images = ["data/stacked_segmentation/images/train/BraTS-SSA-00002-00021-t1c.png", 
-    #           "data/stacked_segmentation/images/train/BraTS-SSA-00002-00021-t1c.png", 
-    #           "data/stacked_segmentation/images/train/BraTS-SSA-00002-00021-t1c.png", 
-    #           "data/stacked_segmentation/images/train/BraTS-SSA-00002-00021-t1c.png"]
-
-#     train_dataloader, val_dataloader = trainer.create_dataloader(data_path=trainer.data_path)
-# 
-#     for epoch in tqdm(range(1)):
-#         for idx, img_mask in enumerate(tqdm(train_dataloader)):
-#             img = img_mask[0].float().to("cuda")
-#             mask = img_mask[1].float().to("cuda")
-# 
-#             results = YOLO_predictor(img)
-# 
-#             print(results)
-
-    # zeros = torch.zeros(128, 4, 160, 160).to("cuda")
-    # results = YOLO_predictor(zeros)
-    # print(results)
-    # x = model(zeros)
-
-    # print(x) 
     
     trainer.train()
 

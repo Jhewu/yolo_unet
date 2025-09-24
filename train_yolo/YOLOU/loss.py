@@ -59,35 +59,6 @@ class YOLOULoss(torch.nn.Module):
             )
         return total_loss
 
-# class DiceFocalTverskyLoss(torch.nn.Module):
-#     def __init__(self, alpha=0.6, beta=0.4, gamma=1.5, smooth=1e-6):
-#         super().__init__()
-#         self.alpha = alpha
-#         self.beta = beta
-#         self.gamma = gamma
-#         self.smooth = smooth
-# 
-#     def forward(self, inputs, targets):
-#         inputs = torch.sigmoid(inputs)
-#         inputs = inputs.view(-1)
-#         targets = targets.view(-1)
-# 
-#         # === Dice Loss ===
-#         intersection = (inputs * targets).sum()
-#         dice = (2. * intersection + self.smooth) / (inputs.sum() + targets.sum() + self.smooth)
-#         dice_loss = 1 - dice
-# 
-#         # === Focal Tversky Loss ===
-#         TP = (inputs * targets).sum()
-#         FP = ((1 - targets) * inputs).sum()
-#         FN = (targets * (1 - inputs)).sum()
-#         tversky = (TP + self.smooth) / (TP + self.alpha * FP + self.beta * FN + self.smooth)
-#         focal_tversky_loss = (1 - tversky) ** self.gamma
-# 
-#         # === Combined ===
-#         loss = 0.5 * dice_loss + 0.5 * focal_tversky_loss
-#         return loss
-
 def dice_metric(pred, target, smooth=1e-8):
     """
     Computes the Dice Score/Coefficient for binary segmentation.
